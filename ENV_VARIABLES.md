@@ -4,14 +4,14 @@ This document explains how to configure the environment variables for the De Ele
 
 ## Setup Instructions
 
-1. Copy the `.env.example` file to `.env`:
+1. Pull the project's variables from Vercel into `.env.local` (the dev server reads this file):
    ```bash
-   cp .env.example .env
+   vercel env pull .env.local --yes
    ```
 
-2. Edit the `.env` file with your actual company information.
+   Without Vercel access, copy `.env.example` to `.env.local` and fill it in instead.
 
-3. Restart the development server after making changes to the `.env` file.
+2. Restart the development server after making changes to `.env.local`.
 
 ## Available Environment Variables
 
@@ -64,6 +64,21 @@ shows:
 - `NUXT_SMTP_PASS` - SMTP password or Zoho app password
 - `NUXT_SMTP_FROM_NAME` - Display name used in outgoing mail
 - `NUXT_CONTACT_TO` - Inbox that receives contact form submissions
+
+### Portfolio Admin (Private)
+
+The client manages portfolio projects at `/admin`. Projects are stored in the Supabase table
+`elektraman_portfolio` and photos in the public Storage bucket `elektraman-portfolio`.
+
+- `NUXT_ADMIN_PASSWORD` - Password for `/admin`. Use a long random one (there is no lockout after failed attempts)
+- `NUXT_SESSION_PASSWORD` - At least 32 random characters, encrypts the login cookie (`openssl rand -hex 32`).
+  Changing it signs everyone out
+- `SUPABASE_URL` - Set by the Vercel Supabase integration
+- `SUPABASE_SECRET_KEY` - Set by the Vercel Supabase integration; server-side only
+
+Until both admin variables are set, `/admin` shows that it is not configured. Until the first save, the site shows the
+built-in projects. Local development (`npm run dev`) reads and writes a separate `dev` copy and `dev/` photo folder,
+so testing never changes the live portfolio.
 
 ## Usage in Code
 

@@ -20,6 +20,9 @@ export default defineNuxtConfig({
         smtpPass: '',
         smtpFromName: 'De Elektraman Website',
         contactTo: '',
+        // Portfolio admin: a long random password, and a 32+ character secret that encrypts the session cookie
+        adminPassword: '',
+        sessionPassword: '',
         public: {
             appName: '',
             websiteName: '',
@@ -55,6 +58,11 @@ export default defineNuxtConfig({
             name: 'layout',
             mode: 'out-in'
         }
+    },
+
+    // Portfolio photos uploaded through the admin live in Supabase Storage
+    image: {
+        domains: process.env.SUPABASE_URL ? [new URL(process.env.SUPABASE_URL).hostname] : [],
     },
 
     vite: {

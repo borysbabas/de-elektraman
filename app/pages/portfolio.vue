@@ -3,6 +3,7 @@ import type { ComponentPublicInstance } from 'vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { animate } from 'motion'
 import { ArrowsPointingOutIcon, ChevronLeftIcon, ChevronRightIcon, XMarkIcon } from '@heroicons/vue/24/solid'
+import type { Portfolio, PortfolioProject } from '#shared/types/portfolio'
 
 useSeoMeta({
   title: 'Portfolio | De Elektraman',
@@ -12,82 +13,14 @@ useSeoMeta({
   twitterCard: 'summary'
 })
 
-interface Project {
-  id: number
-  images: string[]
-  title: string
-  category: string
-}
+type Project = PortfolioProject
 
-const projects: Project[] = [
-  {
-    id: 1,
-    images: ['/elektra-aanleg/elektra-aanleg-1.jpeg', '/elektra-aanleg/elektra-aanleg-4.jpeg', '/elektra-aanleg/elektra-aanleg-2.jpeg', '/elektra-aanleg/elektra-aanleg-3.jpeg'],
-    title: 'Elektra aanleg',
-    category: 'Residentieel'
-  },
-  {
-    id: 2,
-    images: ['/groepskast/groepskast-2.jpeg', '/groepskast/groepskast-1.jpeg', '/groepskast/groepskast-3.jpeg', '/groepskast/groepskast-4.jpeg', '/groepskast/groepskast-5.jpeg'],
-    title: 'Groepskast vervangen/aanleggen',
-    category: 'Residentieel'
-  },
-  {
-    id: 3,
-    images: ['/grote-batterijen/grote-batterijen-1.jpeg', '/grote-batterijen/grote-batterijen-2.jpeg', '/grote-batterijen/grote-batterijen-3.jpeg', '/grote-batterijen/grote-batterijen-4.jpeg', '/grote-batterijen/grote-batterijen-5.jpeg', '/grote-batterijen/grote-batterijen-6.jpeg'],
-    title: 'Grote batterijen (Vanaf 40.8 kW)',
-    category: 'Commercieel'
-  },
-  {
-    id: 4,
-    images: ['/grote-laadpalen/grote-laadpalen-4.jpeg', '/grote-laadpalen/grote-laadpalen-2.jpeg', '/grote-laadpalen/grote-laadpalen-3.jpeg', '/grote-laadpalen/grote-laadpalen-1.jpeg'],
-    title: 'Grote laadpalen (22 kW - 720 kW)',
-    category: 'Commercieel'
-  },
-  {
-    id: 5,
-    images: ['/kleine-laadpalen/kleine-laadpalen-1.jpeg', '/kleine-laadpalen/kleine-laadpalen-2.jpeg', '/kleine-laadpalen/kleine-laadpalen-3.jpeg'],
-    title: 'Kleine laadpalen (3,7 kW - 22 kW)',
-    category: 'Residentieel'
-  },
-  {
-    id: 6,
-    images: ['/led-verlichting/led-verlichting.jpeg'],
-    title: 'LED-verlichting',
-    category: 'Onderhoud'
-  },
-  {
-    id: 7,
-    images: ['/storing/storing-1.jpeg', '/storing/storing-2.jpeg', '/storing/storing-3.jpeg'],
-    title: 'Storing',
-    category: 'Onderhoud'
-  },
-  {
-    id: 8,
-    images: ['/thuisbatterijen/thuisbatterijen-4.jpeg', '/thuisbatterijen/thuisbatterijen-2.jpeg', '/thuisbatterijen/thuisbatterijen-1.jpeg', '/thuisbatterijen/thuisbatterijen-3.jpeg'],
-    title: 'Thuisbatterijen (Tot 40,8 kW)',
-    category: 'Residentieel'
-  },
-  {
-    id: 9,
-    images: ['/verdeel-inrichting/verdeel-inrichting-3.jpeg', '/verdeel-inrichting/verdeel-inrichting-2.jpeg', '/verdeel-inrichting/verdeel-inrichting-1.jpeg', '/verdeel-inrichting/verdeel-inrichting-4.jpeg'],
-    title: 'Verdeel inrichting',
-    category: 'Commercieel'
-  },
-  {
-    id: 10,
-    images: ['/verlichting-design/verlichting-design-1.jpeg', '/verlichting-design/verlichting-design-2.jpeg', '/verlichting-design/verlichting-design-3.jpeg', '/verlichting-design/verlichting-design-4.jpeg', '/verlichting-design/verlichting-design-5.jpeg'],
-    title: 'Verlichting design',
-    category: 'Residentieel'
-  },
-  {
-    id: 11,
-    images: ['/zonne-energie/zonne-energie-1.jpeg', '/zonne-energie/zonne-energie-2.jpeg', '/zonne-energie/zonne-energie-3.jpeg', '/zonne-energie/zonne-energie-4.jpeg', '/zonne-energie/zonne-energie-5.jpeg', '/zonne-energie/zonne-energie-6.jpeg'],
-    title: 'Zonne-energie',
-    category: 'Residentieel'
-  }
-]
-const categories = ['Alles', 'Residentieel', 'Commercieel', 'Onderhoud']
+// Projects are managed by the client in /admin
+const { data: portfolio } = await useFetch<Portfolio>('/api/portfolio', {
+  default: () => ({ categories: [], projects: [] })
+})
+const projects = computed(() => portfolio.value.projects)
+const categories = computed(() => ['Alles', ...portfolio.value.categories])
 const selectedCategory = ref('Alles')
 const selectedProject = ref<Project | null>(null)
 const selectedProjectIndex = ref<number>(-1)
@@ -95,13 +28,13 @@ const selectedImageIndex = ref<number>(0)
 
 const filteredProjects = computed(() => {
   if (selectedCategory.value === 'Alles') {
-    return projects
+    return projects.value
   }
-  return projects.filter(p => p.category === selectedCategory.value)
+  return projects.value.filter(p => p.category === selectedCategory.value)
 })
 
-// Tall cards are tied to the project, so a card keeps its size when the filter changes
-const isTall = (project: Project) => [0, 4].includes((project.id - 1) % 7)
+// Tall cards follow the position in the full list, so a card keeps its size when the filter changes
+const isTall = (project: Project) => [0, 4].includes(projects.value.indexOf(project) % 7)
 
 const prefersReducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -149,7 +82,7 @@ const pillAnimated = ref(false)
 let resizeObserver: ResizeObserver | undefined
 
 const measurePill = () => {
-  const button = filterRow.value?.querySelectorAll('button')[categories.indexOf(selectedCategory.value)]
+  const button = filterRow.value?.querySelectorAll('button')[categories.value.indexOf(selectedCategory.value)]
   if (button) {
     pill.value = { x: button.offsetLeft, y: button.offsetTop, w: button.offsetWidth, h: button.offsetHeight }
   }
@@ -174,8 +107,8 @@ const pinLeavingCard = (el: Element) => {
 }
 
 /* Modal */
-const cardRefs = new Map<number, HTMLElement>()
-const setCardRef = (id: number, el: Element | ComponentPublicInstance | null) => {
+const cardRefs = new Map<string, HTMLElement>()
+const setCardRef = (id: string, el: Element | ComponentPublicInstance | null) => {
   if (el) cardRefs.set(id, el as HTMLElement)
   else cardRefs.delete(id)
 }
@@ -271,7 +204,7 @@ const resetModal = () => {
 }
 
 const activePhoto = () => track.value?.children[selectedImageIndex.value] as HTMLElement | undefined
-const cardPhoto = (id: number) => cardRefs.get(id)?.querySelector('img') ?? undefined
+const cardPhoto = (id: string) => cardRefs.get(id)?.querySelector('img') ?? undefined
 
 // Morph a photo between card and modal with the View Transitions API; browsers without it get the CSS fade
 const morph = (from: HTMLElement | undefined, update: () => void, to: () => HTMLElement | undefined) => {
