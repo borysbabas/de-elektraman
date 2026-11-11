@@ -1,3 +1,4 @@
 export default defineEventHandler(async (event) => {
-  return { signedIn: await isSignedIn(event) }
+  const account = await currentAccount(event)
+  return { signedIn: !!account, username: account?.username ?? null }
 })

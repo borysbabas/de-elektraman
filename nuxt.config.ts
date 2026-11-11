@@ -20,10 +20,7 @@ export default defineNuxtConfig({
         smtpPass: '',
         smtpFromName: 'De Elektraman Website',
         contactTo: '',
-        // Portfolio admin: the client's password, the developer's backup password (works during a lockout),
-        // and a 32+ character secret that encrypts the session cookie
-        adminPassword: '',
-        adminBackupPassword: '',
+        // Portfolio admin: a 32+ character secret that encrypts the login cookie (accounts live in Supabase)
         sessionPassword: '',
         public: {
             appName: '',

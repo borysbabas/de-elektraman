@@ -25,6 +25,7 @@ const { data: session, error: sessionError, refresh: refreshSession } = await us
 const notConfigured = computed(() => statusCode(sessionError.value) === 503)
 
 /* Sign in */
+const username = ref('')
 const password = ref('')
 const signingIn = ref(false)
 const loginError = ref('')
@@ -33,7 +34,7 @@ const signIn = async () => {
   signingIn.value = true
   loginError.value = ''
   try {
-    await $fetch('/api/admin/login', { method: 'POST', body: { password: password.value } })
+    await $fetch('/api/admin/login', { method: 'POST', body: { username: username.value, password: password.value } })
     password.value = ''
     await refreshSession()
     // After a session expired mid-edit, keep the unsaved draft instead of reloading over it
@@ -45,21 +46,53 @@ const signIn = async () => {
   }
 }
 
+const errorData = (error: unknown) =>
+  (error as { data?: { data?: { remaining?: number; lockedUntil?: string | null } } }).data?.data
+
+const lockedText = (error: unknown) => {
+  const until = errorData(error)?.lockedUntil
+  const time = until ? new Date(until).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) : null
+  return `Te veel onjuiste pogingen. Dit account is ${time ? `tot ${time} ` : ''}geblokkeerd. Neem contact op met de bouwer van de website om het eerder te ontgrendelen.`
+}
+
+const remainingText = (error: unknown) => {
+  const remaining = errorData(error)?.remaining
+  return remaining ? ` Nog ${remaining} ${remaining === 1 ? 'poging' : 'pogingen'} voordat dit account tijdelijk wordt geblokkeerd.` : ''
+}
+
 const loginErrorText = (error: unknown) => {
-  const data = (error as { data?: { data?: { remaining?: number; lockedUntil?: string | null } } }).data?.data
-  if (statusCode(error) === 423) {
-    const until = data?.lockedUntil
-      ? new Date(data.lockedUntil).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
-      : null
-    return `Te veel onjuiste pogingen. Het beheer is ${until ? `tot ${until} ` : ''}geblokkeerd. Neem contact op met de bouwer van de website om het eerder te ontgrendelen.`
-  }
-  if (statusCode(error) === 401) {
-    const remaining = data?.remaining
-    return remaining
-      ? `Onjuist wachtwoord. Nog ${remaining} ${remaining === 1 ? 'poging' : 'pogingen'} voordat het beheer tijdelijk wordt geblokkeerd.`
-      : 'Onjuist wachtwoord.'
-  }
+  if (statusCode(error) === 423) return lockedText(error)
+  if (statusCode(error) === 401) return `Onjuiste gebruikersnaam of wachtwoord.${remainingText(error)}`
   return 'Inloggen is mislukt. Probeer het opnieuw.'
+}
+
+/* Change own password */
+const MIN_PASSWORD_LENGTH = 12
+const passwordForm = reactive({ open: false, current: '', next: '', repeat: '', busy: false, error: '', done: '' })
+
+const changePassword = async () => {
+  passwordForm.error = ''
+  passwordForm.done = ''
+  if (passwordForm.next.length < MIN_PASSWORD_LENGTH) {
+    passwordForm.error = `Kies een nieuw wachtwoord van minimaal ${MIN_PASSWORD_LENGTH} tekens.`
+    return
+  }
+  if (passwordForm.next !== passwordForm.repeat) {
+    passwordForm.error = 'De twee nieuwe wachtwoorden zijn niet hetzelfde.'
+    return
+  }
+  passwordForm.busy = true
+  try {
+    await $fetch('/api/admin/password', { method: 'POST', body: { current: passwordForm.current, next: passwordForm.next } })
+    Object.assign(passwordForm, { current: '', next: '', repeat: '', done: 'Wachtwoord gewijzigd. Op andere apparaten ben je uitgelogd.' })
+  } catch (error) {
+    const code = statusCode(error)
+    passwordForm.error = code === 403
+      ? `Het huidige wachtwoord klopt niet.${remainingText(error)}`
+      : code === 423 ? lockedText(error) : 'Wijzigen is mislukt. Probeer het opnieuw.'
+  } finally {
+    passwordForm.busy = false
+  }
 }
 
 const signOut = async () => {
@@ -304,14 +337,24 @@ const iconButtonClass = 'press p-2 rounded-lg text-gray-500 hover:text-secondary
         <NuxtLink class="font-display font-bold text-secondary hover:text-primary transition-colors" to="/portfolio">
           De Elektraman
         </NuxtLink>
-        <button
-          v-if="session?.signedIn"
-          class="press text-sm font-semibold text-gray-600 hover:text-secondary"
-          type="button"
-          @click="signOut"
-        >
-          Uitloggen
-        </button>
+        <div v-if="session?.signedIn" class="flex items-center gap-4 text-sm">
+          <span class="hidden sm:inline text-gray-500">Ingelogd als {{ session.username }}</span>
+          <button
+            :aria-expanded="passwordForm.open"
+            class="press font-semibold text-gray-600 hover:text-secondary"
+            type="button"
+            @click="passwordForm.open = !passwordForm.open"
+          >
+            Wachtwoord wijzigen
+          </button>
+          <button
+            class="press font-semibold text-gray-600 hover:text-secondary"
+            type="button"
+            @click="signOut"
+          >
+            Uitloggen
+          </button>
+        </div>
       </div>
     </header>
 
@@ -324,6 +367,19 @@ const iconButtonClass = 'press p-2 rounded-lg text-gray-500 hover:text-secondary
 
       <!-- Sign in -->
       <form v-else-if="!session?.signedIn" class="max-w-sm mt-8 space-y-4" @submit.prevent="signIn">
+        <div>
+          <label class="block text-sm font-bold text-gray-800 mb-2" for="username">Gebruikersnaam</label>
+          <input
+            id="username"
+            v-model="username"
+            :class="inputClass"
+            autocapitalize="none"
+            autocomplete="username"
+            required
+            spellcheck="false"
+            type="text"
+          >
+        </div>
         <div>
           <label class="block text-sm font-bold text-gray-800 mb-2" for="password">Wachtwoord</label>
           <input id="password" v-model="password" :class="inputClass" autocomplete="current-password" required type="password">
@@ -342,6 +398,46 @@ const iconButtonClass = 'press p-2 rounded-lg text-gray-500 hover:text-secondary
 
       <template v-else>
         <p class="text-gray-600 mb-12">Wijzigingen zijn pas zichtbaar op de site nadat je ze opslaat.</p>
+
+        <!-- Change own password -->
+        <section v-if="passwordForm.open" class="mb-14 max-w-sm rounded-xl border border-border bg-white p-4 md:p-6">
+          <h2 class="text-xl font-bold text-secondary mb-4">Wachtwoord wijzigen</h2>
+          <form class="space-y-4" @submit.prevent="changePassword">
+            <!-- Lets password managers store the new password under the right account -->
+            <input :value="session?.username ?? ''" aria-hidden="true" autocomplete="username" class="sr-only" readonly tabindex="-1" type="text">
+            <div>
+              <label class="block text-sm font-bold text-gray-800 mb-1" for="current-password">Huidig wachtwoord</label>
+              <input id="current-password" v-model="passwordForm.current" :class="inputClass" autocomplete="current-password" required type="password">
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-gray-800 mb-1" for="new-password">Nieuw wachtwoord</label>
+              <input
+                id="new-password"
+                v-model="passwordForm.next"
+                :class="inputClass"
+                :minlength="MIN_PASSWORD_LENGTH"
+                aria-describedby="new-password-hint"
+                autocomplete="new-password"
+                required
+                type="password"
+              >
+              <p id="new-password-hint" class="mt-1 text-sm text-gray-500">Minimaal {{ MIN_PASSWORD_LENGTH }} tekens.</p>
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-gray-800 mb-1" for="repeat-password">Herhaal nieuw wachtwoord</label>
+              <input id="repeat-password" v-model="passwordForm.repeat" :class="inputClass" autocomplete="new-password" required type="password">
+            </div>
+            <button
+              :disabled="passwordForm.busy"
+              class="press w-full px-6 py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary-dark disabled:opacity-60"
+              type="submit"
+            >
+              {{ passwordForm.busy ? 'Opslaan…' : 'Wachtwoord opslaan' }}
+            </button>
+            <p v-if="passwordForm.error" class="text-sm font-semibold text-red" role="alert">{{ passwordForm.error }}</p>
+            <p v-if="passwordForm.done" class="text-sm font-semibold text-primary-dark" role="status">{{ passwordForm.done }}</p>
+          </form>
+        </section>
 
         <!-- Categories -->
         <section class="mb-14">
