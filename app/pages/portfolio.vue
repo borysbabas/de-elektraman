@@ -141,6 +141,9 @@ const warmUp = (item: Project) => void preloadPhoto(item.images[0]!)
 
 /* Filter: one pill slides to the selected category */
 const filterRow = ref<HTMLElement | null>(null)
+const filterSentinel = ref<HTMLElement | null>(null)
+const navbarMerged = useState('navbar-merged', () => false)
+let stuckObserver: IntersectionObserver | undefined
 const pill = ref<{ x: number; y: number; w: number; h: number } | null>(null)
 const pillAnimated = ref(false)
 let resizeObserver: ResizeObserver | undefined
@@ -441,6 +444,12 @@ watch(() => selectedProject.value !== null, (open) => {
 })
 
 onMounted(() => {
+  // The bar is pinned once the line above it passes under the 89px navbar
+  stuckObserver = new IntersectionObserver(([entry]) => {
+    navbarMerged.value = !!entry && !entry.isIntersecting && entry.boundingClientRect.top < 89
+  }, { rootMargin: '-89px 0px 0px 0px' })
+  if (filterSentinel.value) stuckObserver.observe(filterSentinel.value)
+
   measurePill()
   requestAnimationFrame(() => {
     pillAnimated.value = true
@@ -454,6 +463,8 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  stuckObserver?.disconnect()
+  navbarMerged.value = false
   resizeObserver?.disconnect()
   slideAnimation?.stop()
   dismissAnimation?.stop()
@@ -470,9 +481,13 @@ onBeforeUnmount(() => {
       title="Ons portfolio"
     />
 
-    <!-- Category Filter -->
+    <!-- Category Filter: while pinned, its material reaches up behind the navbar so both read as one bar -->
+    <div ref="filterSentinel" aria-hidden="true" class="h-px" />
     <section
-      class="material py-6 md:py-8 px-4 md:px-6 border-b border-border sticky top-[89px] z-40">
+      :class="[
+        'py-6 md:py-8 px-4 md:px-6 border-b border-border sticky top-[89px] z-40',
+        navbarMerged ? `before:content-[''] before:absolute before:inset-x-0 before:-top-[89px] before:bottom-0 before:-z-10 before:material` : 'bg-white'
+      ]">
       <div class="container mx-auto">
         <div ref="filterRow" class="relative flex flex-wrap gap-2 md:gap-3 justify-center">
           <span

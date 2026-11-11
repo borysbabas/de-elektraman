@@ -1,8 +1,8 @@
 <template>
   <header
     :class="[
-      'material sticky top-0 z-50 border-b transition-colors duration-200',
-      scrolled || mobileMenuOpen ? 'border-gray-200/70' : 'border-transparent'
+      'sticky top-0 z-50 border-b transition-[border-color] duration-200',
+      merged ? 'border-transparent' : ['material', scrolled || mobileMenuOpen ? 'border-gray-200/70' : 'border-transparent']
     ]">
     <nav class="container mx-auto flex items-center justify-between py-5 px-6">
       <!-- Logo -->
@@ -100,6 +100,10 @@
 const companyInfo = useCompanyInfo()
 const mobileMenuOpen = ref(false)
 const scrolled = ref(false)
+
+// A pinned sub-bar (portfolio filters) draws the material for both; two blurred layers side by side show a seam
+const navbarMerged = useState('navbar-merged', () => false)
+const merged = computed(() => navbarMerged.value && !mobileMenuOpen.value)
 
 const links = [
   { to: '/', label: 'Home' },
