@@ -68,11 +68,20 @@ shows:
 ### Portfolio Admin (Private)
 
 The client manages portfolio projects at `/admin`. Projects are stored in the Supabase table
-`elektraman_portfolio` and photos in the public Storage bucket `elektraman-portfolio`.
+`elektraman_portfolio`, photos in the public Storage bucket `elektraman-portfolio`, and login state in
+`elektraman_admin_login`.
 
-- `NUXT_ADMIN_PASSWORD` - Password for `/admin`. Use a long random one (there is no lockout after failed attempts)
+- `NUXT_ADMIN_PASSWORD` - The client's password for `/admin`
+- `NUXT_ADMIN_BACKUP_PASSWORD` - The developer's backup password. Works during a lockout and lifts it
 - `NUXT_SESSION_PASSWORD` - At least 32 random characters, encrypts the login cookie (`openssl rand -hex 32`).
   Changing it signs everyone out
+
+After 5 wrong passwords the admin is locked for 30 minutes. During a lockout only the backup password gets in,
+with its own limit of 5 attempts per 24 hours. If even that is locked, reset it in Supabase:
+`update elektraman_admin_login set failed_attempts = 0, locked_until = null;`
+
+Signing out deletes the cookie and ends the session on every device. Uploaded photos that are removed, undone or
+left unsaved are deleted again; anything missed is removed on a save more than an hour later.
 - `SUPABASE_URL` - Set by the Vercel Supabase integration
 - `SUPABASE_SECRET_KEY` - Set by the Vercel Supabase integration; server-side only
 

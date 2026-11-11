@@ -1,24 +1,11 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { Portfolio, PortfolioProject } from '#shared/types/portfolio'
 
 const TABLE = 'elektraman_portfolio'
 const BUCKET = 'elektraman-portfolio'
-// Local dev reads and writes its own copy instead of the live portfolio
-const DOC_ID = import.meta.dev ? 'dev' : 'live'
-const UPLOAD_PREFIX = import.meta.dev ? 'dev/' : ''
-
-let client: SupabaseClient | undefined
-
-// Server-only client with the secret key: the table has RLS on and no policies, so nothing else can touch it
-const supabase = () => {
-  if (!client) {
-    const url = process.env.SUPABASE_URL
-    const key = process.env.SUPABASE_SECRET_KEY
-    if (!url || !key) throw createError({ statusCode: 503, statusMessage: 'Supabase is not configured' })
-    client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
-  }
-  return client
-}
+const UPLOAD_FOLDER = ENV_KEY === 'dev' ? 'dev' : ''
+const UPLOAD_PREFIX = UPLOAD_FOLDER ? `${UPLOAD_FOLDER}/` : ''
+// Uploads that never made it into a saved project are kept this long, so a save on one device can't delete photos still being added on another
+const UNSAVED_PHOTO_GRACE_MS = 60 * 60 * 1000
 
 // What the site showed before the admin existed; served until the first save
 export const defaultPortfolio: Portfolio = {
@@ -95,7 +82,7 @@ export const defaultPortfolio: Portfolio = {
 
 // shortcut: the whole portfolio is one JSON document; fine for one editor and a few hundred projects, split into rows beyond that
 export const readPortfolio = async (): Promise<{ portfolio: Portfolio; etag: string | null }> => {
-  const { data, error } = await supabase().from(TABLE).select('data, updated_at').eq('id', DOC_ID).maybeSingle()
+  const { data, error } = await supabase().from(TABLE).select('data, updated_at').eq('id', ENV_KEY).maybeSingle()
   if (error) throw error
   if (!data) return { portfolio: defaultPortfolio, etag: null }
   return { portfolio: data.data as Portfolio, etag: data.updated_at as string }
@@ -107,8 +94,8 @@ const conflict = () => createError({ statusCode: 409, statusMessage: 'Portfolio 
 export const writePortfolio = async (portfolio: Portfolio, etag: string | null) => {
   const row = { data: portfolio, updated_at: new Date().toISOString() }
   const query = etag
-    ? supabase().from(TABLE).update(row).eq('id', DOC_ID).eq('updated_at', etag)
-    : supabase().from(TABLE).insert({ id: DOC_ID, ...row })
+    ? supabase().from(TABLE).update(row).eq('id', ENV_KEY).eq('updated_at', etag)
+    : supabase().from(TABLE).insert({ id: ENV_KEY, ...row })
   const { data, error } = await query.select('updated_at')
   if (error?.code === '23505') throw conflict() // someone else saved the first version
   if (error) throw error
@@ -133,15 +120,40 @@ export const uploadPhoto = async (jpeg: Buffer) => {
   return supabase().storage.from(BUCKET).getPublicUrl(path).data.publicUrl
 }
 
-// Photos that were removed from every project; local /public files are left alone
+const removePhotos = async (paths: string[]) => {
+  if (!paths.length) return
+  const { error } = await supabase().storage.from(BUCKET).remove(paths)
+  if (error) throw error
+}
+
+// After a save: delete photos just taken out of a project, and older uploads no saved project uses. Local /public files are left alone
 export const deleteUnusedPhotos = async (before: Portfolio, after: Portfolio) => {
   const kept = new Set(after.projects.flatMap(p => p.images))
-  const removed = before.projects.flatMap(p => p.images)
-    .filter(src => isStoredPhoto(src) && !kept.has(src))
-    .map(src => src.slice(publicPhotoPrefix().length))
-  if (!removed.length) return
-  const { error } = await supabase().storage.from(BUCKET).remove(removed)
-  if (error) throw error
+  const previouslyUsed = new Set(before.projects.flatMap(p => p.images))
+  const cutoff = Date.now() - UNSAVED_PHOTO_GRACE_MS
+  const unused: string[] = []
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await supabase().storage.from(BUCKET).list(UPLOAD_FOLDER, { limit: 1000, offset })
+    if (error) throw error
+    for (const file of data) {
+      if (!file.id) continue // a folder, such as dev/ next to the live photos
+      const path = `${UPLOAD_PREFIX}${file.name}`
+      const url = `${publicPhotoPrefix()}${path}`
+      if (kept.has(url)) continue
+      if (previouslyUsed.has(url) || Date.parse(file.created_at) < cutoff) unused.push(path)
+    }
+    if (data.length < 1000) break
+  }
+  await removePhotos(unused)
+}
+
+// Uploads the admin threw away before saving; photos the saved portfolio still uses are never touched
+export const discardPhotos = async (urls: string[]) => {
+  const { portfolio } = await readPortfolio()
+  const used = new Set(portfolio.projects.flatMap(p => p.images))
+  await removePhotos(urls
+    .filter(src => isStoredPhoto(src) && !used.has(src))
+    .map(src => src.slice(publicPhotoPrefix().length)))
 }
 
 const text = (value: unknown, max: number) => {

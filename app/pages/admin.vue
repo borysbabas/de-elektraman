@@ -39,14 +39,32 @@ const signIn = async () => {
     // After a session expired mid-edit, keep the unsaved draft instead of reloading over it
     if (!draft.value) await load()
   } catch (error) {
-    loginError.value = statusCode(error) === 401 ? 'Onjuist wachtwoord.' : 'Inloggen is mislukt. Probeer het opnieuw.'
+    loginError.value = loginErrorText(error)
   } finally {
     signingIn.value = false
   }
 }
 
+const loginErrorText = (error: unknown) => {
+  const data = (error as { data?: { data?: { remaining?: number; lockedUntil?: string | null } } }).data?.data
+  if (statusCode(error) === 423) {
+    const until = data?.lockedUntil
+      ? new Date(data.lockedUntil).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
+      : null
+    return `Te veel onjuiste pogingen. Het beheer is ${until ? `tot ${until} ` : ''}geblokkeerd. Neem contact op met de bouwer van de website om het eerder te ontgrendelen.`
+  }
+  if (statusCode(error) === 401) {
+    const remaining = data?.remaining
+    return remaining
+      ? `Onjuist wachtwoord. Nog ${remaining} ${remaining === 1 ? 'poging' : 'pogingen'} voordat het beheer tijdelijk wordt geblokkeerd.`
+      : 'Onjuist wachtwoord.'
+  }
+  return 'Inloggen is mislukt. Probeer het opnieuw.'
+}
+
 const signOut = async () => {
   if (dirty.value && !confirm('Je niet-opgeslagen wijzigingen gaan verloren. Toch uitloggen?')) return
+  await discardUnsaved()
   await $fetch('/api/admin/logout', { method: 'POST' })
   draft.value = null
   await refreshSession()
@@ -59,6 +77,27 @@ const savedJson = ref('')
 const saving = ref(false)
 const message = ref<{ kind: 'saved' | 'error'; text: string } | null>(null)
 const uploads = reactive<Record<string, number>>({})
+// Photos uploaded in this visit that no save has included yet; they are deleted again if they don't end up in a save
+const unsavedUploads = new Set<string>()
+
+const discardPhotos = async (urls: string[]) => {
+  urls.forEach(url => unsavedUploads.delete(url))
+  if (!urls.length) return
+  // If this fails, the server removes the leftovers on a later save
+  await $fetch('/api/admin/photos/discard', { method: 'POST', body: { urls } }).catch(() => {})
+}
+
+const discardUnsaved = () => discardPhotos([...unsavedUploads])
+
+const removePhoto = (project: PortfolioProject, index: number) => {
+  const [src] = project.images.splice(index, 1)
+  if (src && unsavedUploads.has(src)) void discardPhotos([src])
+}
+
+const removeProject = (index: number) => {
+  const [project] = draft.value?.projects.splice(index, 1) ?? []
+  if (project) void discardPhotos(project.images.filter(src => unsavedUploads.has(src)))
+}
 
 const dirty = computed(() => !!draft.value && JSON.stringify(draft.value) !== savedJson.value)
 const uploading = computed(() => Object.values(uploads).some(count => count > 0))
@@ -72,6 +111,7 @@ const load = async () => {
 }
 
 const discard = () => {
+  void discardUnsaved()
   draft.value = JSON.parse(savedJson.value)
   message.value = null
 }
@@ -95,6 +135,7 @@ const save = async () => {
     })
     etag.value = result.etag
     savedJson.value = JSON.stringify(draft.value)
+    unsavedUploads.clear()
     message.value = { kind: 'saved', text: 'Opgeslagen. De portfoliopagina is bijgewerkt.' }
   } catch (error) {
     const code = statusCode(error)
@@ -212,6 +253,7 @@ const addPhotos = async (project: PortfolioProject, event: Event) => {
         headers: { 'content-type': 'image/jpeg' }
       })
       project.images.push(url)
+      unsavedUploads.add(url)
     } catch (error) {
       const code = statusCode(error)
       if (code === 401) await refreshSession()
@@ -230,15 +272,25 @@ const warnBeforeUnload = (event: BeforeUnloadEvent) => {
   if (dirty.value || uploading.value) event.preventDefault()
 }
 
+// Closing the tab: a beacon still reaches the server after the page is gone. Skipped when the page is only
+// cached for the back button, since it may come back with these photos still in the draft
+const discardOnPageHide = (event: PageTransitionEvent) => {
+  if (event.persisted || !unsavedUploads.size) return
+  navigator.sendBeacon('/api/admin/photos/discard', new Blob([JSON.stringify({ urls: [...unsavedUploads] })], { type: 'application/json' }))
+}
+
 onBeforeRouteLeave(() => !dirty.value || confirm('Je niet-opgeslagen wijzigingen gaan verloren. Toch verlaten?'))
 
 onMounted(async () => {
   window.addEventListener('beforeunload', warnBeforeUnload)
+  window.addEventListener('pagehide', discardOnPageHide)
   if (session.value?.signedIn) await load()
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', warnBeforeUnload)
+  window.removeEventListener('pagehide', discardOnPageHide)
+  void discardUnsaved()
 })
 
 const inputClass = 'w-full px-3 py-2.5 rounded-lg border-2 border-gray-200 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-[border-color,box-shadow] text-base bg-white'
@@ -398,7 +450,7 @@ const iconButtonClass = 'press p-2 rounded-lg text-gray-500 hover:text-secondary
                     :class="[iconButtonClass, 'hover:text-red']"
                     aria-label="Project verwijderen"
                     type="button"
-                    @click="draft.projects.splice(index, 1)"
+                    @click="removeProject(index)"
                   >
                     <TrashIcon class="w-5 h-5" />
                   </button>
@@ -445,7 +497,7 @@ const iconButtonClass = 'press p-2 rounded-lg text-gray-500 hover:text-secondary
                       aria-label="Foto verwijderen"
                       class="press p-2 rounded-md hover:bg-white/20"
                       type="button"
-                      @click="project.images.splice(photoIndex, 1)"
+                      @click="removePhoto(project, photoIndex)"
                     >
                       <XMarkIcon class="w-5 h-5" />
                     </button>
