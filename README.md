@@ -41,7 +41,7 @@ contact functionality.
 Clone the repository
 
 ```bash
-git clone https://github.com/Raadfxrd/de-elektraman.git
+git clone https://github.com/borysbabas/de-elektraman.git
 cd de-elektraman
 ```
 
