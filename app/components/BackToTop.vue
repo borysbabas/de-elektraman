@@ -3,7 +3,7 @@
     <button
       v-if="showButton"
       aria-label="Terug naar boven"
-      class="fixed bottom-8 right-8 z-50 p-4 bg-primary text-white cursor-pointer rounded-full shadow-lg hover:bg-primary/90 transition-all duration-300 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 overflow-hidden"
+      class="fixed bottom-8 right-8 z-50 p-4 press bg-primary text-white cursor-pointer rounded-full shadow-lg hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 overflow-hidden"
       title="Terug naar boven"
       @click="scrollToTop"
     >
@@ -25,12 +25,12 @@ const handleScroll = () => {
 const scrollToTop = () => {
   window.scrollTo({
     top: 0,
-    behavior: 'smooth'
+    behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
   })
 }
 
 onMounted(() => {
-  window.addEventListener('scroll', handleScroll)
+  window.addEventListener('scroll', handleScroll, { passive: true })
 })
 
 onBeforeUnmount(() => {
@@ -41,13 +41,13 @@ onBeforeUnmount(() => {
 <style>
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition: opacity 200ms ease-out, translate 200ms var(--ease-fluid);
 }
 
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
-  transform: translateY(10px);
+  translate: 0 10px;
 }
 
 /* Arrow up animation */

@@ -12,6 +12,9 @@ interface Props {
 }
 
 defineProps<Props>()
+
+// Each step is a core in a cable, in installation order: L1, L2, L3, N
+const cores = ['bg-wire-brown', 'bg-wire-black ring-1 ring-white/25', 'bg-wire-grey', 'bg-wire-blue']
 </script>
 
 <template>
@@ -22,10 +25,13 @@ defineProps<Props>()
         <p class="text-xl opacity-95">{{ description }}</p>
       </div>
 
-      <div class="grid md:grid-cols-4 gap-8 max-w-5xl mx-auto">
-        <div v-for="step in steps" :key="step.number" class="text-center">
+      <div class="relative grid md:grid-cols-4 gap-8 max-w-5xl mx-auto">
+        <span
+          aria-hidden="true"
+          class="hidden md:block absolute top-7 left-[calc(12.5%-0.75rem)] right-[calc(12.5%-0.75rem)] h-px bg-white/20" />
+        <div v-for="(step, index) in steps" :key="step.number" class="relative text-center">
           <div
-            class="w-14 h-14 bg-primary rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
+            :class="['font-display w-14 h-14 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4', cores[index % cores.length]]">
             {{ step.number }}
           </div>
           <h4 class="text-lg font-bold mb-2">{{ step.title }}</h4>

@@ -19,24 +19,34 @@ useSeoMeta({
       :secondary-button="{ text: 'Bekijk ons werk', to: '/portfolio' }"
       :show-image="true"
       description="Van installaties en onderhoud tot spoedeisende reparaties, De Elektraman levert deskundige elektrische diensten met precisie, betrouwbaarheid en professionaliteit."
-      highlight-text="Vertrouwen"
-      title="Professionele elektrische diensten die u kunt"
-    />
+      title="Professionele elektrische diensten die u kunt vertrouwen"
+    >
+      <a
+        :href="`tel:${companyInfo.emergencyPhone}`"
+        class="press inline-flex items-center gap-3 font-semibold text-red hover:text-red-dark"
+      >
+        <span class="relative flex size-2.5">
+          <span class="absolute inset-0 rounded-full bg-red opacity-75 motion-safe:animate-ping" />
+          <span class="relative size-2.5 rounded-full bg-red" />
+        </span>
+        Storing? Bel {{ companyInfo.hours.emergency }}: {{ companyInfo.emergencyPhoneDisplay }}
+      </a>
+    </PageHero>
 
     <!-- Trust Indicators -->
     <section class="bg-gray-50 py-12 md:py-16 px-6">
       <div class="container mx-auto">
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 md:gap-8">
           <div class="text-center">
-            <div class="text-3xl md:text-4xl font-bold mb-2 text-primary">{{ companyInfo.happyClients }}+</div>
-            <p class="text-sm md:text-base text-gray-700">Tevreden Klanten</p>
+            <div class="font-display text-3xl md:text-4xl font-bold mb-2 text-primary">{{ companyInfo.happyClients }}+</div>
+            <p class="text-sm md:text-base text-gray-700">Tevreden klanten</p>
           </div>
           <div class="text-center">
-            <div class="text-3xl md:text-4xl font-bold mb-2 text-primary">{{ companyInfo.yearsExperience }}+</div>
-            <p class="text-sm md:text-base text-gray-700">Jaar Ervaring</p>
+            <div class="font-display text-3xl md:text-4xl font-bold mb-2 text-primary">{{ companyInfo.yearsExperience }}+</div>
+            <p class="text-sm md:text-base text-gray-700">Jaar ervaring</p>
           </div>
           <div class="text-center">
-            <div class="text-3xl md:text-4xl font-bold mb-2 text-primary">{{ companyInfo.hours.emergency }}</div>
+            <div class="font-display text-3xl md:text-4xl font-bold mb-2 text-primary">{{ companyInfo.hours.emergency }}</div>
             <p class="text-sm md:text-base text-gray-700">Storingsdienst</p>
           </div>
         </div>
@@ -66,7 +76,7 @@ useSeoMeta({
 
           <ServiceCard
             :icon="ExclamationTriangleIcon"
-            description="24/7 Storingsdienst voor dringende elektrische problemen. We zijn er altijd voor u wanneer u ons nodig hebt."
+            description="24/7 storingsdienst voor dringende elektrische problemen. We zijn er altijd voor u wanneer u ons nodig hebt."
             title="Storingsdienst"
           />
         </div>
@@ -76,12 +86,10 @@ useSeoMeta({
     <!-- Why Choose Us -->
     <section class="py-12 md:py-20 px-6">
       <div class="container mx-auto">
-        <div class="max-w-3xl mx-auto text-center mb-12 md:mb-16">
-          <h2 class="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 text-secondary">Waarom De Elektraman kiezen?</h2>
-          <p class="text-base sm:text-lg md:text-xl text-gray-700">
-            We combineren jarenlange ervaring met moderne technieken om uitzonderlijke elektrische diensten te leveren
-          </p>
-        </div>
+        <SectionHeader
+          description="We combineren jarenlange ervaring met moderne technieken om uitzonderlijke elektrische diensten te leveren"
+          title="Waarom De Elektraman kiezen?"
+        />
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
           <FeatureItem

@@ -5,10 +5,6 @@
 	--color-primary-dark: #059669;
 	--color-primary-light: #d1fae5;
 	--color-secondary: #1F2937;
-	--color-background: #d3d3d3;
-	--color-accent: #F97316;
-	--color-accent-light: #fed7aa;
-	--color-highlight: #10B981;
 	--color-red: #DC2626;
 	--color-red-dark: #B91C1C;
 	--color-gray-600: #4b5563;
@@ -16,41 +12,113 @@
 	--color-gray-50: #f9fafb;
 	--color-gray-900: #111827;
 	--color-border: #e5e7eb;
-	--font-family: 'Unbounded', sans-serif;
+
+	/* Installation wire colours, in the order the logo shows them */
+	--color-wire-grey: #8A8A8A;
+	--color-wire-brown: #6B4423;
+	--color-wire-blue: #3B1FE0;
+	--color-wire-black: #000000;
+	--color-wire-pe-green: #2FB344;
+	--color-wire-pe-yellow: #F2D20F;
+
+	--font-display: 'Unbounded', sans-serif;
+	--font-sans: 'Instrument Sans', system-ui, sans-serif;
+
+	--ease-fluid: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-html, body {
-	background-color: var(--color-background);
+html {
+	background-color: #fff;
+	-webkit-tap-highlight-color: transparent;
+	/* Locking scroll for the modal must not shift the page sideways */
+	scrollbar-gutter: stable;
+}
+
+body {
 	color: var(--color-secondary);
-	font-family: var(--font-family), sans-serif;
+	font-family: 'Instrument Sans', system-ui, sans-serif;
 }
 
-.bg-main-gradient {
-	background: linear-gradient(135deg,
-	var(--color-primary) 0%,
-	var(--color-accent) 100%
-	);
+h1, h2, h3, h4, .font-display {
+	font-family: 'Unbounded', sans-serif;
+}
+
+/* Wide display face: tighten as it grows */
+h1, h2 {
+	letter-spacing: -0.02em;
+}
+
+/* Press feedback: lands on pointer-down, eases back on release */
+@utility press {
+	transition-property: color, background-color, border-color, box-shadow, opacity, scale;
+	transition-duration: 150ms;
+	transition-timing-function: ease-out;
+
+	&:active:not(:disabled) {
+		scale: 0.97;
+		transition-duration: 80ms;
+	}
+}
+
+/* Translucent chrome: content scrolls underneath */
+@utility material {
+	background-color: rgb(255 255 255 / 0.75);
+	backdrop-filter: blur(20px) saturate(180%);
+
+	@media (prefers-reduced-transparency: reduce) {
+		background-color: #fff;
+		backdrop-filter: none;
+	}
+}
+
+/* The five installation wires as one stripe */
+@utility wire-rule {
+	display: block;
+	height: 0.3125rem;
+	width: 6rem;
+	border-radius: 9999px;
+	background:
+		repeating-linear-gradient(-45deg, var(--color-wire-pe-yellow) 0 4px, var(--color-wire-pe-green) 4px 6px) 25% 0 / 20% 100% no-repeat,
+		linear-gradient(90deg,
+		var(--color-wire-grey) 0 20%,
+		transparent 20% 40%,
+		var(--color-wire-brown) 40% 60%,
+		var(--color-wire-blue) 60% 80%,
+		var(--color-wire-black) 80% 100%);
+}
+
+.wire-draw {
+	transform-origin: left;
+	animation: wire-draw 700ms var(--ease-fluid) 150ms both;
+}
+
+@keyframes wire-draw {
+	from {
+		scale: 0 1;
+	}
 }
 
 /* Page Transition Animations */
-.page-enter-active,
+.page-enter-active {
+	transition: opacity 200ms ease-out, translate 200ms var(--ease-fluid);
+}
+
 .page-leave-active {
-	transition: opacity 0.3s ease, transform 0.3s ease;
+	transition: opacity 120ms ease-in;
 }
 
 .page-enter-from {
 	opacity: 0;
-	transform: translateY(10px);
+	translate: 0 6px;
 }
 
 .page-leave-to {
 	opacity: 0;
-	transform: translateY(-10px);
 }
 
 .layout-enter-active,
 .layout-leave-active {
-	transition: opacity 0.3s ease;
+	transition: opacity 150ms ease;
 }
 
 .layout-enter-from,
@@ -58,3 +126,29 @@ html, body {
 	opacity: 0;
 }
 
+/* Portfolio photo: card morphs into the modal and back */
+::view-transition-group(project-photo) {
+	animation-duration: 400ms;
+	animation-timing-function: var(--ease-fluid);
+}
+
+::view-transition-old(project-photo),
+::view-transition-new(project-photo) {
+	height: 100%;
+	object-fit: cover;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.page-enter-from {
+		translate: none;
+	}
+
+	.wire-draw {
+		animation: none;
+	}
+
+	.animate-pulse,
+	.animate-ping {
+		animation: none;
+	}
+}

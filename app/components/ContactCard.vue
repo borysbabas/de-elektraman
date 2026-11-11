@@ -37,7 +37,7 @@ const availabilityText = computed(() => {
 
 <template>
   <div
-    class="group p-6 md:p-8 rounded-xl border border-border text-center">
+    class="p-6 md:p-8 rounded-xl border border-border text-center">
     <div
       class="w-12 h-12 md:w-14 md:h-14 bg-primary-light rounded-lg flex items-center justify-center mb-4 md:mb-6 mx-auto">
       <component :is="icon" class="w-6 h-6 md:w-8 md:h-8 text-primary" />
@@ -65,7 +65,10 @@ const availabilityText = computed(() => {
         v-if="isAvailable"
         class="inline-flex items-center gap-1 text-xs font-semibold text-primary"
       >
-        <span class="w-2 h-2 bg-primary rounded-full animate-pulse" />
+        <span class="relative flex size-2">
+          <span class="absolute inset-0 rounded-full bg-primary opacity-75 motion-safe:animate-ping" />
+          <span class="relative size-2 rounded-full bg-primary" />
+        </span>
         {{ availabilityText }}
       </span>
       <span

@@ -14,7 +14,6 @@ useSeoMeta({
     <PageHero
       :compact="true"
       description="Wij gaan zorgvuldig om met uw persoonsgegevens en gebruiken deze alleen voor dienstverlening en contact."
-      highlight-text="Privacy"
       title="Privacyverklaring"
     />
 

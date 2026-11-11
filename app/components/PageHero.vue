@@ -1,7 +1,6 @@
 <script lang="ts" setup>
 interface Props {
   title: string
-  highlightText?: string
   description: string
   primaryButton?: { text: string; to: string } | null
   secondaryButton?: { text: string; to: string } | null
@@ -10,7 +9,6 @@ interface Props {
 }
 
 withDefaults(defineProps<Props>(), {
-  highlightText: '',
   primaryButton: null,
   secondaryButton: null,
   showImage: false,
@@ -32,17 +30,13 @@ withDefaults(defineProps<Props>(), {
       ]">
         <!-- Left Content -->
         <div class="space-y-6">
-          <h1 class="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight text-secondary">
-            <template v-if="highlightText">
-              {{ title }} <span class="text-primary">{{ highlightText }}</span>
-            </template>
-            <template v-else>
-              {{ title }}
-            </template>
+          <h1 class="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-[1.1] text-secondary">
+            {{ title }}
           </h1>
+          <span aria-hidden="true" class="wire-rule wire-draw" />
           <p
             :class="[
-            'text-base sm:text-lg md:text-xl leading-relaxed',
+            'text-base sm:text-lg md:text-xl leading-relaxed max-w-prose',
             compact ? 'text-gray-700' : 'text-gray-600'
           ]">
             {{ description }}
@@ -51,29 +45,33 @@ withDefaults(defineProps<Props>(), {
             <NuxtLink
               v-if="primaryButton"
               :to="primaryButton.to"
-              class="px-8 py-4 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dark transition-colors duration-200 shadow-lg text-center"
+              class="press px-8 py-4 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dark shadow-lg text-center"
             >
               {{ primaryButton.text }}
             </NuxtLink>
             <NuxtLink
               v-if="secondaryButton"
               :to="secondaryButton.to"
-              class="px-8 py-4 border-2 border-primary text-primary font-semibold rounded-lg hover:bg-primary-light transition-colors duration-200 text-center"
+              class="press px-8 py-4 border-2 border-primary text-primary font-semibold rounded-lg hover:bg-primary-light text-center"
             >
               {{ secondaryButton.text }}
             </NuxtLink>
           </div>
+          <slot />
         </div>
 
         <!-- Right Content -->
-        <div v-if="showImage" class="relative hidden md:flex items-center justify-end">
-          <div class="relative w-full aspect-5/6 flex items-end justify-end overflow-hidden rounded-2xl">
-            <img
-              alt="De Elektraman"
-              class="h-full w-full object-cover object-right drop-shadow-xl"
+        <div v-if="showImage" class="relative flex items-center justify-end">
+          <div class="relative w-full aspect-4/3 md:aspect-5/6 overflow-hidden rounded-2xl">
+            <NuxtImg
+              alt="De Elektraman aan het werk bij een batterijopslag"
+              class="h-full w-full object-cover object-[center_30%] md:object-right md:[mask-image:linear-gradient(to_left,#000_60%,transparent)]"
+              fetchpriority="high"
+              format="webp"
+              preload
+              sizes="100vw md:50vw xl:640px"
               src="/sandro.jpeg"
-              style="-webkit-mask-image: linear-gradient(to left, rgba(0, 0, 0, 1) 60%, rgba(0, 0, 0, 0) 100%); mask-image: linear-gradient(to left, rgba(0, 0, 0, 1) 60%, rgba(0, 0, 0, 0) 100%);"
-            >
+            />
           </div>
         </div>
       </div>

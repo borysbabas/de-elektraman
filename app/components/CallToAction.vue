@@ -33,7 +33,7 @@ withDefaults(defineProps<Props>(), {
       </p>
       <NuxtLink
         :to="buttonLink"
-        class="inline-block px-6 md:px-8 py-3 md:py-4 bg-primary text-white text-sm md:text-base font-semibold rounded-lg hover:bg-primary-dark transition-colors duration-200 shadow-lg"
+        class="press inline-block px-6 md:px-8 py-3 md:py-4 bg-primary text-white text-sm md:text-base font-semibold rounded-lg hover:bg-primary-dark shadow-lg"
       >
         {{ buttonText }}
       </NuxtLink>

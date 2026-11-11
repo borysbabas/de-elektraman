@@ -22,6 +22,7 @@ withDefaults(defineProps<Props>(), {
     <h2 class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 text-secondary">
       {{ title }}
     </h2>
+    <span :class="['wire-rule mb-5', centered && 'mx-auto']" aria-hidden="true" />
     <p
       v-if="description" :class="[
       'text-base sm:text-lg md:text-xl text-gray-600',

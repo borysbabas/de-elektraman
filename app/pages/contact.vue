@@ -130,8 +130,7 @@ const handleSubmit = async () => {
     <!-- Hero Section -->
     <PageHero
       description="Onze experts staan klaar om uw vragen te beantwoorden en een gratis offerte op te stellen."
-      highlight-text="Bespreken"
-      title="Laten we uw project"
+      title="Laten we uw project bespreken"
     />
 
     <!-- Contact Methods - Cards -->
@@ -195,7 +194,7 @@ const handleSubmit = async () => {
                   id="name"
                   ref="nameInput"
                   v-model="formData.name"
-                  class="w-full px-4 py-3 md:py-4 rounded-xl border-2 border-gray-200 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all text-base md:text-lg bg-white"
+                  class="w-full px-4 py-3 md:py-4 rounded-xl border-2 border-gray-200 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-[border-color,box-shadow] text-base md:text-lg bg-white"
                   placeholder="Jan de Vries"
                   required
                   type="text"
@@ -211,7 +210,7 @@ const handleSubmit = async () => {
                   <input
                     id="email"
                     v-model="formData.email"
-                    class="w-full px-4 py-3 md:py-4 rounded-xl border-2 border-gray-200 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all text-base md:text-lg bg-white"
+                    class="w-full px-4 py-3 md:py-4 rounded-xl border-2 border-gray-200 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-[border-color,box-shadow] text-base md:text-lg bg-white"
                     placeholder="jan@voorbeeld.nl"
                     required
                     type="email"
@@ -224,7 +223,7 @@ const handleSubmit = async () => {
                   <input
                     id="phone"
                     v-model="formData.phone"
-                    class="w-full px-4 py-3 md:py-4 rounded-xl border-2 border-gray-200 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all text-base md:text-lg bg-white"
+                    class="w-full px-4 py-3 md:py-4 rounded-xl border-2 border-gray-200 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-[border-color,box-shadow] text-base md:text-lg bg-white"
                     minlength="8"
                     pattern="[0-9+() -]{8,20}"
                     placeholder="06 1234 5678"
@@ -242,7 +241,7 @@ const handleSubmit = async () => {
                 <select
                   id="serviceType"
                   v-model="formData.serviceType"
-                  class="w-full px-4 py-3 md:py-4 rounded-xl border-2 border-gray-200 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all bg-white text-base md:text-lg"
+                  class="w-full px-4 py-3 md:py-4 rounded-xl border-2 border-gray-200 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-[border-color,box-shadow] bg-white text-base md:text-lg"
                   required
                 >
                   <option v-for="type in serviceTypes" :key="type" :value="type">
@@ -259,7 +258,7 @@ const handleSubmit = async () => {
                 <input
                   id="subject"
                   v-model="formData.subject"
-                  class="w-full px-4 py-3 md:py-4 rounded-xl border-2 border-gray-200 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all text-base md:text-lg bg-white"
+                  class="w-full px-4 py-3 md:py-4 rounded-xl border-2 border-gray-200 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-[border-color,box-shadow] text-base md:text-lg bg-white"
                   placeholder="Waar kunnen we u mee helpen?"
                   required
                   type="text"
@@ -274,7 +273,7 @@ const handleSubmit = async () => {
                 <textarea
                   id="message"
                   v-model="formData.message"
-                  class="w-full px-4 py-3 md:py-4 rounded-xl border-2 border-gray-200 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all resize-none text-base md:text-lg bg-white"
+                  class="w-full px-4 py-3 md:py-4 rounded-xl border-2 border-gray-200 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-[border-color,box-shadow] resize-none text-base md:text-lg bg-white"
                   placeholder="Vertel ons meer over uw project, tijdlijn, budget en eventuele specifieke wensen..."
                   required
                   rows="6"
@@ -284,7 +283,7 @@ const handleSubmit = async () => {
               <!-- Submit Button -->
               <button
                 :disabled="isSubmitting"
-                class="w-full px-6 md:px-8 py-4 md:py-5 bg-primary text-white text-base md:text-lg font-bold rounded-xl cursor-pointer hover:bg-primary-dark hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-primary"
+                class="w-full px-6 md:px-8 py-4 md:py-5 bg-primary text-white text-base md:text-lg font-bold press rounded-xl cursor-pointer hover:bg-primary-dark hover:shadow-xl flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-primary"
                 type="submit"
               >
                 <span>{{ isSubmitting ? 'Verzenden...' : 'Verstuur bericht' }}</span>
@@ -295,13 +294,20 @@ const handleSubmit = async () => {
                 </svg>
               </button>
 
-              <p v-if="submitSuccess" class="text-sm text-green-700 text-center font-semibold">
-                {{ submitSuccess }}
-              </p>
-
-              <p v-if="submitError" class="text-sm text-red text-center font-semibold">
-                {{ submitError }}
-              </p>
+              <div aria-live="polite">
+                <Transition
+                  enter-active-class="transition-[opacity,translate] duration-200 ease-out"
+                  enter-from-class="opacity-0 -translate-y-1"
+                  mode="out-in"
+                >
+                  <p v-if="submitSuccess" key="success" class="text-sm text-green-700 text-center font-semibold">
+                    {{ submitSuccess }}
+                  </p>
+                  <p v-else-if="submitError" :key="submitError" class="text-sm text-red text-center font-semibold">
+                    {{ submitError }}
+                  </p>
+                </Transition>
+              </div>
 
               <p class="text-sm text-gray-600 text-center">
                 Door dit formulier te verzenden, neemt u contact op via e-mail of telefoon.
@@ -358,8 +364,11 @@ const handleSubmit = async () => {
             <!-- Emergency Card -->
             <div class="bg-white rounded-2xl md:rounded-3xl p-6 md:p-8 shadow-lg border-2 border-red">
               <div class="flex items-center gap-2 mb-4">
-                <span class="w-3 h-3 bg-red rounded-full animate-pulse" />
-                <span class="text-xs font-bold uppercase tracking-wider text-red">Noodgeval</span>
+                <span class="relative flex size-3">
+                  <span class="absolute inset-0 rounded-full bg-red opacity-75 motion-safe:animate-ping" />
+                  <span class="relative size-3 rounded-full bg-red" />
+                </span>
+                <span class="text-sm font-bold text-red">Noodgeval</span>
               </div>
 
               <h3 class="text-xl md:text-2xl font-bold mb-3 text-secondary">24/7 Storingsdienst</h3>
@@ -370,10 +379,10 @@ const handleSubmit = async () => {
 
               <a
                 :href="`tel:${companyInfo.emergencyPhone}`"
-                class="inline-flex items-center justify-center gap-2 w-full px-4 md:px-6 py-3 md:py-4 bg-red text-white text-sm md:text-base font-bold rounded-xl hover:bg-red-dark transition-all shadow-md hover:shadow-lg"
+                class="press inline-flex items-center justify-center gap-2 w-full px-4 md:px-6 py-3 md:py-4 bg-red text-white text-sm md:text-base font-bold rounded-xl hover:bg-red-dark shadow-md hover:shadow-lg"
               >
                 <PhoneIcon class="w-5 h-5" />
-                <span>Bel Nu: {{ companyInfo.emergencyPhoneDisplay }}</span>
+                <span>Bel nu: {{ companyInfo.emergencyPhoneDisplay }}</span>
               </a>
             </div>
 
@@ -401,58 +410,21 @@ const handleSubmit = async () => {
       </div>
     </section>
 
-    <!-- Trust Indicators -->
-    <section class="py-12 md:py-20 px-4 md:px-6 bg-gray-50">
-      <div class="container mx-auto max-w-6xl">
-        <SectionHeader
-          description="Ons proces is transparant en efficiënt"
-          title="Wat u kunt verwachten"
-        />
-
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
-          <div class="text-center">
-            <div
-              class="w-16 h-16 md:w-20 md:h-20 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4 text-white text-2xl md:text-3xl font-bold shadow-lg">
-              1
-            </div>
-            <h4 class="text-base md:text-lg font-bold mb-2 text-secondary">Contact</h4>
-            <p class="text-gray-600 text-xs md:text-sm">U neemt contact op via telefoon, e-mail of formulier</p>
-          </div>
-
-          <div class="text-center">
-            <div
-              class="w-16 h-16 md:w-20 md:h-20 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4 text-white text-2xl md:text-3xl font-bold shadow-lg">
-              2
-            </div>
-            <h4 class="text-base md:text-lg font-bold mb-2 text-secondary">Intake</h4>
-            <p class="text-gray-600 text-xs md:text-sm">We bespreken uw wensen en plannen een afspraak</p>
-          </div>
-
-          <div class="text-center">
-            <div
-              class="w-16 h-16 md:w-20 md:h-20 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4 text-white text-2xl md:text-3xl font-bold shadow-lg">
-              3
-            </div>
-            <h4 class="text-base md:text-lg font-bold mb-2 text-secondary">Offerte</h4>
-            <p class="text-gray-600 text-xs md:text-sm">U ontvangt een transparante en gedetailleerde offerte</p>
-          </div>
-
-          <div class="text-center">
-            <div
-              class="w-16 h-16 md:w-20 md:h-20 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4 text-white text-2xl md:text-3xl font-bold shadow-lg">
-              4
-            </div>
-            <h4 class="text-base md:text-lg font-bold mb-2 text-secondary">Uitvoering</h4>
-            <p class="text-gray-600 text-xs md:text-sm">We starten met uw project op de afgesproken datum</p>
-          </div>
-        </div>
-      </div>
-    </section>
+    <!-- Process -->
+    <ProcessSection
+      :steps="[
+        { number: 1, title: 'Contact', description: 'U neemt contact op via telefoon, e-mail of formulier' },
+        { number: 2, title: 'Intake', description: 'We bespreken uw wensen en plannen een afspraak' },
+        { number: 3, title: 'Offerte', description: 'U ontvangt een transparante en gedetailleerde offerte' },
+        { number: 4, title: 'Uitvoering', description: 'We starten met uw project op de afgesproken datum' }
+      ]"
+      description="Ons proces is transparant en efficiënt"
+      title="Wat u kunt verwachten"
+    />
 
     <!-- Final CTA -->
     <CallToAction
       :button-link="`tel:${companyInfo.phone}`"
-      :dark-mode="true"
       button-text="Bel direct"
       description="Neem vandaag nog contact op en ontvang binnen 24 uur een vrijblijvende offerte."
       title="Laten we beginnen"

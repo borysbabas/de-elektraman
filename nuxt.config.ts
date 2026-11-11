@@ -6,7 +6,6 @@ export default defineNuxtConfig({
     css: ['~/assets/css/main.css'],
 
     modules: [
-        '@nuxt/content',
         '@nuxt/eslint',
         '@nuxt/fonts',
         '@nuxt/icon',
@@ -46,6 +45,8 @@ export default defineNuxtConfig({
     },
 
     app: {
+        // iOS Safari only applies :active (press feedback) when a touchstart handler exists
+        head: {bodyAttrs: {ontouchstart: ''}},
         pageTransition: {
             name: 'page',
             mode: 'out-in'

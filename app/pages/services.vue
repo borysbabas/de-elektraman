@@ -21,8 +21,7 @@ useSeoMeta({
     <PageHero
       :compact="true"
       description="Van residentiële tot industriële projecten, De Elektraman biedt professionele en betrouwbare elektrische diensten."
-      highlight-text="Diensten"
-      title="Volledige elektrische"
+      title="Volledige elektrische diensten"
     />
 
     <!-- Primary Services -->
@@ -51,7 +50,7 @@ useSeoMeta({
           <ServiceCard
             :features="['24/7 beschikbaarheid', 'Snelle responstijd', 'Noodreparaties']"
             :icon="ExclamationTriangleIcon"
-            description="24/7 Storingsdienst voor dringende elektrische problemen. We zijn er altijd voor u wanneer u ons nodig hebt."
+            description="24/7 storingsdienst voor dringende elektrische problemen. We zijn er altijd voor u wanneer u ons nodig hebt."
             title="Storingsdienst"
           />
         </div>

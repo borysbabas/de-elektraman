@@ -14,7 +14,7 @@ defineProps<Props>()
 
 <template>
   <div
-    class="group p-6 md:p-8 rounded-xl border border-border">
+    class="p-6 md:p-8 rounded-xl border border-border">
     <div class="w-12 h-12 md:w-14 md:h-14 bg-primary-light rounded-lg flex items-center justify-center mb-4 md:mb-6">
       <component :is="icon" class="w-6 h-6 md:w-8 md:h-8 text-primary" />
     </div>

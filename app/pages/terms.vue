@@ -15,7 +15,6 @@ useSeoMeta({
     <PageHero
       :compact="true"
       description="Bekijk of download onze servicevoorwaarden voor alle afspraken rondom offertes en uitvoering."
-      highlight-text="Voorwaarden"
       title="Servicevoorwaarden"
     />
 

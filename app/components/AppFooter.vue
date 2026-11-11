@@ -6,19 +6,23 @@
         <!-- Brand -->
         <div class="sm:col-span-2 md:col-span-1">
           <div class="flex items-center gap-2 mb-3 md:mb-4">
-            <img
+            <NuxtImg
               :alt="`${companyInfo.appName} Logo`"
               class="w-10 h-10 md:w-12 md:h-12 object-contain"
+              format="webp"
+              height="48"
+              loading="lazy"
               src="/logo.png"
-            >
-            <span class="text-base md:text-lg font-bold text-gray-900">{{ companyInfo.appName }}</span>
+              width="48"
+            />
+            <span class="font-display text-base md:text-lg font-bold text-gray-900">{{ companyInfo.appName }}</span>
           </div>
           <p class="text-gray-600 text-xs md:text-sm">{{ companyInfo.description }}</p>
         </div>
 
         <!-- Quick Links -->
         <div>
-          <h4 class="font-bold text-gray-900 mb-3 md:mb-4 text-sm md:text-base">Snelle Links</h4>
+          <h4 class="font-bold text-gray-900 mb-3 md:mb-4 text-sm md:text-base">Snelle links</h4>
           <ul class="space-y-2 text-xs md:text-sm">
             <li>
               <NuxtLink class="text-gray-600 hover:text-primary transition-colors" to="/">Home</NuxtLink>
@@ -29,6 +33,9 @@
             <li>
               <NuxtLink class="text-gray-600 hover:text-primary transition-colors" to="/portfolio">Portfolio
               </NuxtLink>
+            </li>
+            <li>
+              <NuxtLink class="text-gray-600 hover:text-primary transition-colors" to="/contact">Contact</NuxtLink>
             </li>
           </ul>
         </div>
@@ -50,7 +57,7 @@
 
         <!-- Legal -->
         <div>
-          <h4 class="font-bold text-gray-900 mb-3 md:mb-4 text-sm md:text-base">Rechtmatig</h4>
+          <h4 class="font-bold text-gray-900 mb-3 md:mb-4 text-sm md:text-base">Juridisch</h4>
           <ul class="space-y-2 text-xs md:text-sm">
             <li>
               <NuxtLink class="text-gray-600 hover:text-primary transition-colors" to="/privacy">Privacybeleid
