@@ -36,8 +36,6 @@ const filteredProjects = computed(() => {
 // Tall cards follow the position in the full list, so a card keeps its size when the filter changes
 const isTall = (project: Project) => [0, 4].includes(projects.value.indexOf(project) % 7)
 
-const prefersReducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches
-
 // Apple's momentum projection: where a flick would come to rest
 const projectMomentum = (velocity: number, decelerationRate = 0.998) =>
   (velocity / 1000) * decelerationRate / (1 - decelerationRate)
@@ -91,19 +89,6 @@ const measurePill = () => {
 const selectCategory = (category: string) => {
   selectedCategory.value = category
   measurePill()
-}
-
-// Pin a leaving card where it is so the others can slide into its place
-const pinLeavingCard = (el: Element) => {
-  const card = el as HTMLElement
-  const { offsetLeft, offsetTop, offsetWidth, offsetHeight } = card
-  Object.assign(card.style, {
-    position: 'absolute',
-    left: `${offsetLeft}px`,
-    top: `${offsetTop}px`,
-    width: `${offsetWidth}px`,
-    height: `${offsetHeight}px`
-  })
 }
 
 /* Modal */
@@ -455,7 +440,7 @@ onBeforeUnmount(() => {
           class="relative grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 grid-flow-dense auto-rows-[12rem] gap-4 md:gap-6"
           name="project-card"
           tag="div"
-          @before-leave="pinLeavingCard"
+          @before-leave="pinLeaving"
         >
           <button
             v-for="item in filteredProjects"
@@ -655,6 +640,11 @@ onBeforeUnmount(() => {
 </template>
 
 <style>
+/* Before the enter/leave rules: an item can still carry the move class when it starts leaving, and the leave must win */
+.project-card-move {
+  transition: transform 400ms var(--ease-fluid);
+}
+
 .project-card-enter-active {
   transition: opacity 300ms ease-out, scale 300ms var(--ease-fluid);
 }
@@ -667,10 +657,6 @@ onBeforeUnmount(() => {
 .project-card-leave-to {
   opacity: 0;
   scale: 0.95;
-}
-
-.project-card-move {
-  transition: transform 400ms var(--ease-fluid);
 }
 
 @media (prefers-reduced-motion: reduce) {

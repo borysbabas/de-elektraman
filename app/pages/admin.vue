@@ -1,10 +1,11 @@
 <script lang="ts" setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import {
   ArrowDownIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
   ArrowUpIcon,
+  CheckCircleIcon,
   PhotoIcon,
   PlusIcon,
   TrashIcon,
@@ -29,6 +30,7 @@ const username = ref('')
 const password = ref('')
 const signingIn = ref(false)
 const loginError = ref('')
+const loginForm = ref<HTMLFormElement | null>(null)
 
 const signIn = async () => {
   signingIn.value = true
@@ -41,6 +43,7 @@ const signIn = async () => {
     if (!draft.value) await load()
   } catch (error) {
     loginError.value = loginErrorText(error)
+    if ([401, 423].includes(statusCode(error) ?? 0)) shake(loginForm.value)
   } finally {
     signingIn.value = false
   }
@@ -69,6 +72,7 @@ const loginErrorText = (error: unknown) => {
 /* Change own password */
 const MIN_PASSWORD_LENGTH = 12
 const passwordForm = reactive({ open: false, current: '', next: '', repeat: '', busy: false, error: '', done: '' })
+const passwordFormEl = ref<HTMLFormElement | null>(null)
 
 const changePassword = async () => {
   passwordForm.error = ''
@@ -90,6 +94,7 @@ const changePassword = async () => {
     passwordForm.error = code === 403
       ? `Het huidige wachtwoord klopt niet.${remainingText(error)}`
       : code === 423 ? lockedText(error) : 'Wijzigen is mislukt. Probeer het opnieuw.'
+    if (code === 403 || code === 423) shake(passwordFormEl.value)
   } finally {
     passwordForm.busy = false
   }
@@ -184,6 +189,8 @@ const save = async () => {
   }
 }
 
+const showSaved = computed(() => message.value?.kind === 'saved' && !dirty.value && !saving.value)
+
 const statusText = computed(() => {
   if (saving.value) return 'Opslaan…'
   if (uploading.value) return 'Foto\'s worden geüpload…'
@@ -228,13 +235,15 @@ const renameCategory = (index: number, event: Event) => {
 }
 
 /* Projects */
-const addProject = () => {
-  draft.value?.projects.unshift({
-    id: crypto.randomUUID(),
-    title: '',
-    category: draft.value.categories[0] ?? '',
-    images: []
-  })
+const addProject = async () => {
+  if (!draft.value) return
+  const id = crypto.randomUUID()
+  draft.value.projects.unshift({ id, title: '', category: draft.value.categories[0] ?? '', images: [] })
+  // Straight to typing the title, with the new card in view
+  await nextTick()
+  const title = document.getElementById(`title-${id}`)
+  title?.focus({ preventScroll: true })
+  title?.closest('li')?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'center' })
 }
 
 /* Photos: phone photos are often 10-20 MB, so they are shrunk in the browser before uploading */
@@ -326,8 +335,12 @@ onBeforeUnmount(() => {
   void discardUnsaved()
 })
 
-const inputClass = 'w-full px-3 py-2.5 rounded-lg border-2 border-gray-200 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-[border-color,box-shadow] text-base bg-white'
-const iconButtonClass = 'press p-2 rounded-lg text-gray-500 hover:text-secondary hover:bg-gray-100 disabled:opacity-30 disabled:pointer-events-none'
+const inputClass = 'w-full px-3 py-2.5 rounded-lg border-2 border-gray-200 hover:border-gray-300 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-[border-color,box-shadow] text-base bg-white'
+const iconButtonClass = 'press group/btn p-2 rounded-lg text-gray-500 hover:text-secondary hover:bg-gray-100 disabled:opacity-30 disabled:pointer-events-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+// Arrow icons lean the way the item will move
+const nudge = { up: 'group-hover/btn:-translate-y-0.5', down: 'group-hover/btn:translate-y-0.5', left: 'group-hover/btn:-translate-x-0.5', right: 'group-hover/btn:translate-x-0.5' }
+const iconClass = 'w-5 h-5 transition-transform duration-200 ease-out'
+const photoButtonClass = 'press group/btn p-2 rounded-md hover:bg-white/20 disabled:opacity-0 focus-visible:outline-2 focus-visible:outline-white'
 </script>
 
 <template>
@@ -341,7 +354,7 @@ const iconButtonClass = 'press p-2 rounded-lg text-gray-500 hover:text-secondary
           <span class="hidden sm:inline text-gray-500">Ingelogd als {{ session.username }}</span>
           <button
             :aria-expanded="passwordForm.open"
-            class="press font-semibold text-gray-600 hover:text-secondary"
+            :class="['press font-semibold hover:text-secondary', passwordForm.open ? 'text-secondary' : 'text-gray-600']"
             type="button"
             @click="passwordForm.open = !passwordForm.open"
           >
@@ -361,278 +374,312 @@ const iconButtonClass = 'press p-2 rounded-lg text-gray-500 hover:text-secondary
     <main class="container mx-auto max-w-5xl px-4 md:px-6 pt-10 md:pt-14 pb-36">
       <h1 class="text-3xl md:text-4xl font-bold text-secondary mb-3">Portfolio beheren</h1>
 
-      <p v-if="notConfigured" class="text-gray-700">
-        Het beheer is nog niet ingesteld. Neem contact op met de bouwer van de website.
-      </p>
-
-      <!-- Sign in -->
-      <form v-else-if="!session?.signedIn" class="max-w-sm mt-8 space-y-4" @submit.prevent="signIn">
-        <div>
-          <label class="block text-sm font-bold text-gray-800 mb-2" for="username">Gebruikersnaam</label>
-          <input
-            id="username"
-            v-model="username"
-            :class="inputClass"
-            autocapitalize="none"
-            autocomplete="username"
-            required
-            spellcheck="false"
-            type="text"
-          >
-        </div>
-        <div>
-          <label class="block text-sm font-bold text-gray-800 mb-2" for="password">Wachtwoord</label>
-          <input id="password" v-model="password" :class="inputClass" autocomplete="current-password" required type="password">
-        </div>
-        <button
-          :disabled="signingIn"
-          class="press w-full px-6 py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary-dark disabled:opacity-60"
-          type="submit"
-        >
-          {{ signingIn ? 'Inloggen…' : 'Inloggen' }}
-        </button>
-        <p v-if="loginError" class="text-sm font-semibold text-red" role="alert">{{ loginError }}</p>
-      </form>
-
-      <p v-else-if="!draft" class="text-gray-600">Portfolio laden…</p>
-
-      <template v-else>
-        <p class="text-gray-600 mb-12">Wijzigingen zijn pas zichtbaar op de site nadat je ze opslaat.</p>
-
-        <!-- Change own password -->
-        <section v-if="passwordForm.open" class="mb-14 max-w-sm rounded-xl border border-border bg-white p-4 md:p-6">
-          <h2 class="text-xl font-bold text-secondary mb-4">Wachtwoord wijzigen</h2>
-          <form class="space-y-4" @submit.prevent="changePassword">
-            <!-- Lets password managers store the new password under the right account -->
-            <input :value="session?.username ?? ''" aria-hidden="true" autocomplete="username" class="sr-only" readonly tabindex="-1" type="text">
-            <div>
-              <label class="block text-sm font-bold text-gray-800 mb-1" for="current-password">Huidig wachtwoord</label>
-              <input id="current-password" v-model="passwordForm.current" :class="inputClass" autocomplete="current-password" required type="password">
-            </div>
-            <div>
-              <label class="block text-sm font-bold text-gray-800 mb-1" for="new-password">Nieuw wachtwoord</label>
-              <input
-                id="new-password"
-                v-model="passwordForm.next"
-                :class="inputClass"
-                :minlength="MIN_PASSWORD_LENGTH"
-                aria-describedby="new-password-hint"
-                autocomplete="new-password"
-                required
-                type="password"
-              >
-              <p id="new-password-hint" class="mt-1 text-sm text-gray-500">Minimaal {{ MIN_PASSWORD_LENGTH }} tekens.</p>
-            </div>
-            <div>
-              <label class="block text-sm font-bold text-gray-800 mb-1" for="repeat-password">Herhaal nieuw wachtwoord</label>
-              <input id="repeat-password" v-model="passwordForm.repeat" :class="inputClass" autocomplete="new-password" required type="password">
-            </div>
-            <button
-              :disabled="passwordForm.busy"
-              class="press w-full px-6 py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary-dark disabled:opacity-60"
-              type="submit"
+      <Transition
+        enter-active-class="transition-[opacity,translate] duration-300 ease-fluid motion-reduce:transition-none"
+        enter-from-class="opacity-0 translate-y-2"
+        leave-active-class="transition-opacity duration-150 motion-reduce:transition-none"
+        leave-to-class="opacity-0"
+        mode="out-in"
+      >
+        <p v-if="notConfigured" class="text-gray-700">
+          Het beheer is nog niet ingesteld. Neem contact op met de bouwer van de website.
+        </p>
+        <form v-else-if="!session?.signedIn" ref="loginForm" class="max-w-sm mt-8 space-y-4" @submit.prevent="signIn">
+          <div>
+            <label class="block text-sm font-bold text-gray-800 mb-2" for="username">Gebruikersnaam</label>
+            <input
+              id="username"
+              v-model="username"
+              :class="inputClass"
+              autocapitalize="none"
+              autocomplete="username"
+              required
+              spellcheck="false"
+              type="text"
             >
-              {{ passwordForm.busy ? 'Opslaan…' : 'Wachtwoord opslaan' }}
-            </button>
-            <p v-if="passwordForm.error" class="text-sm font-semibold text-red" role="alert">{{ passwordForm.error }}</p>
-            <p v-if="passwordForm.done" class="text-sm font-semibold text-primary-dark" role="status">{{ passwordForm.done }}</p>
-          </form>
-        </section>
-
-        <!-- Categories -->
-        <section class="mb-14">
-          <h2 class="text-xl md:text-2xl font-bold text-secondary mb-1">Categorieën</h2>
-          <p class="text-sm text-gray-600 mb-4">
-            Dit zijn de filters op de portfoliopagina. Een categorie die nog bij een project hoort, kun je niet verwijderen.
-          </p>
-          <ul class="space-y-2 max-w-xl">
-            <li v-for="(category, index) in draft.categories" :key="index" class="flex items-center gap-2">
-              <input
-                :aria-label="`Naam van categorie ${index + 1}`"
-                :class="inputClass"
-                :value="category"
-                maxlength="40"
-                @change="renameCategory(index, $event)"
-              >
-              <span class="shrink-0 w-24 text-sm text-gray-500 tabular-nums">
-                {{ usage(category) }} {{ usage(category) === 1 ? 'project' : 'projecten' }}
-              </span>
-              <button
-                :aria-label="`Categorie ${category} verwijderen`"
-                :class="iconButtonClass"
-                :disabled="usage(category) > 0 || draft.categories.length === 1"
-                type="button"
-                @click="draft.categories.splice(index, 1)"
-              >
-                <TrashIcon class="w-5 h-5" />
-              </button>
-            </li>
-          </ul>
-          <form class="flex gap-2 mt-3 max-w-xl" @submit.prevent="addCategory">
-            <input v-model="newCategory" :class="inputClass" aria-label="Nieuwe categorie" maxlength="40" placeholder="Nieuwe categorie">
-            <button
-              class="press shrink-0 px-4 py-2 rounded-lg border-2 border-primary text-primary font-semibold hover:bg-primary-light"
-              type="submit"
-            >
-              Toevoegen
-            </button>
-          </form>
-        </section>
-
-        <!-- Projects -->
-        <section>
-          <div class="flex flex-wrap items-center justify-between gap-4 mb-2">
-            <h2 class="text-xl md:text-2xl font-bold text-secondary">Projecten</h2>
-            <button
-              class="press inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dark"
-              type="button"
-              @click="addProject"
-            >
-              <PlusIcon class="w-5 h-5" />
-              Nieuw project
-            </button>
           </div>
-          <p class="text-sm text-gray-600 mb-6">
-            De eerste foto is de omslagfoto. Foto's worden voor het uploaden automatisch verkleind.
-          </p>
+          <div>
+            <label class="block text-sm font-bold text-gray-800 mb-2" for="password">Wachtwoord</label>
+            <input id="password" v-model="password" :class="inputClass" autocomplete="current-password" required type="password">
+          </div>
+          <button
+            :disabled="signingIn"
+            class="press w-full px-6 py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary-dark disabled:opacity-60"
+            type="submit"
+          >
+            {{ signingIn ? 'Inloggen…' : 'Inloggen' }}
+          </button>
+          <p v-if="loginError" class="text-sm font-semibold text-red" role="alert">{{ loginError }}</p>
+        </form>
 
-          <p v-if="!draft.projects.length" class="rounded-xl border-2 border-dashed border-gray-300 p-8 text-center text-gray-600">
-            Nog geen projecten. Voeg je eerste project toe met de knop hierboven.
-          </p>
+        <p v-else-if="!draft" class="text-gray-600">Portfolio laden…</p>
 
-          <TransitionGroup class="space-y-6" move-class="transition-transform duration-300 ease-fluid" tag="ul">
-            <li
-              v-for="(project, index) in draft.projects"
-              :key="project.id"
-              class="rounded-xl border border-border bg-white p-4 md:p-6"
-            >
-              <div class="flex flex-col md:flex-row gap-3 md:items-end mb-4">
-                <div class="flex-1">
-                  <label :for="`title-${project.id}`" class="block text-sm font-bold text-gray-800 mb-1">Titel</label>
-                  <input
-                    :id="`title-${project.id}`"
-                    v-model="project.title"
-                    :class="inputClass"
-                    maxlength="120"
-                    placeholder="Bijv. Thuisbatterij geplaatst"
-                  >
-                </div>
-                <div class="md:w-56">
-                  <label :for="`category-${project.id}`" class="block text-sm font-bold text-gray-800 mb-1">Categorie</label>
-                  <select :id="`category-${project.id}`" v-model="project.category" :class="inputClass">
-                    <option v-for="category in draft.categories" :key="category" :value="category">{{ category }}</option>
-                  </select>
-                </div>
-                <div class="flex gap-1">
-                  <button
-                    :class="iconButtonClass"
-                    :disabled="index === 0"
-                    aria-label="Project omhoog"
-                    type="button"
-                    @click="moveItem(draft.projects, index, -1)"
-                  >
-                    <ArrowUpIcon class="w-5 h-5" />
-                  </button>
-                  <button
-                    :class="iconButtonClass"
-                    :disabled="index === draft.projects.length - 1"
-                    aria-label="Project omlaag"
-                    type="button"
-                    @click="moveItem(draft.projects, index, 1)"
-                  >
-                    <ArrowDownIcon class="w-5 h-5" />
-                  </button>
-                  <button
-                    :class="[iconButtonClass, 'hover:text-red']"
-                    aria-label="Project verwijderen"
-                    type="button"
-                    @click="removeProject(index)"
-                  >
-                    <TrashIcon class="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
+        <div v-else>
+          <p class="text-gray-600 mb-12">Wijzigingen zijn pas zichtbaar op de site nadat je ze opslaat.</p>
 
-              <TransitionGroup
-                class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2"
-                move-class="transition-transform duration-300 ease-fluid"
-                tag="ul"
-              >
-                <li
-                  v-for="(src, photoIndex) in project.images"
-                  :key="src"
-                  class="relative aspect-square overflow-hidden rounded-lg bg-gray-100"
+          <!-- Change own password: unfolds in place, so the page below moves with it instead of jumping -->
+          <div
+            :class="['grid transition-[grid-template-rows,opacity] duration-300 ease-fluid motion-reduce:transition-none', passwordForm.open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0']"
+            :inert="!passwordForm.open"
+          >
+            <div class="min-h-0 overflow-hidden">
+              <section class="mb-14 max-w-sm rounded-xl border border-border bg-white p-4 md:p-6">
+                <h2 class="text-xl font-bold text-secondary mb-4">Wachtwoord wijzigen</h2>
+                <form ref="passwordFormEl" class="space-y-4" @submit.prevent="changePassword">
+                  <!-- Lets password managers store the new password under the right account -->
+                  <input :value="session?.username ?? ''" aria-hidden="true" autocomplete="username" class="sr-only" readonly tabindex="-1" type="text">
+                  <div>
+                    <label class="block text-sm font-bold text-gray-800 mb-1" for="current-password">Huidig wachtwoord</label>
+                    <input id="current-password" v-model="passwordForm.current" :class="inputClass" autocomplete="current-password" required type="password">
+                  </div>
+                  <div>
+                    <label class="block text-sm font-bold text-gray-800 mb-1" for="new-password">Nieuw wachtwoord</label>
+                    <input
+                      id="new-password"
+                      v-model="passwordForm.next"
+                      :class="inputClass"
+                      :minlength="MIN_PASSWORD_LENGTH"
+                      aria-describedby="new-password-hint"
+                      autocomplete="new-password"
+                      required
+                      type="password"
+                    >
+                    <p id="new-password-hint" class="mt-1 text-sm text-gray-500">Minimaal {{ MIN_PASSWORD_LENGTH }} tekens.</p>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-bold text-gray-800 mb-1" for="repeat-password">Herhaal nieuw wachtwoord</label>
+                    <input id="repeat-password" v-model="passwordForm.repeat" :class="inputClass" autocomplete="new-password" required type="password">
+                  </div>
+                  <button
+                    :disabled="passwordForm.busy"
+                    class="press w-full px-6 py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary-dark disabled:opacity-60"
+                    type="submit"
+                  >
+                    {{ passwordForm.busy ? 'Opslaan…' : 'Wachtwoord opslaan' }}
+                  </button>
+                  <p v-if="passwordForm.error" class="text-sm font-semibold text-red" role="alert">{{ passwordForm.error }}</p>
+                  <p v-if="passwordForm.done" class="text-sm font-semibold text-primary-dark" role="status">{{ passwordForm.done }}</p>
+                </form>
+              </section>
+            </div>
+          </div>
+
+          <!-- Categories -->
+          <section class="mb-14">
+            <h2 class="text-xl md:text-2xl font-bold text-secondary mb-1">Categorieën</h2>
+            <p class="text-sm text-gray-600 mb-4">
+              Dit zijn de filters op de portfoliopagina. Een categorie die nog bij een project hoort, kun je niet verwijderen.
+            </p>
+            <ul class="space-y-2 max-w-xl">
+              <li v-for="(category, index) in draft.categories" :key="index" class="flex items-center gap-2">
+                <input
+                  :aria-label="`Naam van categorie ${index + 1}`"
+                  :class="inputClass"
+                  :value="category"
+                  maxlength="40"
+                  @change="renameCategory(index, $event)"
                 >
-                  <NuxtImg
-                    :src="src"
-                    alt=""
-                    class="h-full w-full object-cover"
-                    fit="cover"
-                    format="webp"
-                    height="240"
-                    loading="lazy"
-                    width="240"
-                  />
-                  <span
-                    v-if="photoIndex === 0"
-                    class="absolute left-1 top-1 rounded bg-secondary/85 px-1.5 py-0.5 text-xs font-semibold text-white"
-                  >
-                    Omslag
-                  </span>
-                  <div class="absolute inset-x-0 bottom-0 flex justify-between bg-linear-to-t from-secondary/85 to-transparent p-1 text-white">
-                    <button
-                      :disabled="photoIndex === 0"
-                      aria-label="Foto naar voren"
-                      class="press p-2 rounded-md hover:bg-white/20 disabled:opacity-0"
-                      type="button"
-                      @click="moveItem(project.images, photoIndex, -1)"
+                <span class="shrink-0 w-24 text-sm text-gray-500 tabular-nums">
+                  {{ usage(category) }} {{ usage(category) === 1 ? 'project' : 'projecten' }}
+                </span>
+                <button
+                  :aria-label="`Categorie ${category} verwijderen`"
+                  :class="iconButtonClass"
+                  :disabled="usage(category) > 0 || draft.categories.length === 1"
+                  type="button"
+                  @click="draft.categories.splice(index, 1)"
+                >
+                  <TrashIcon class="w-5 h-5" />
+                </button>
+              </li>
+            </ul>
+            <form class="flex gap-2 mt-3 max-w-xl" @submit.prevent="addCategory">
+              <input v-model="newCategory" :class="inputClass" aria-label="Nieuwe categorie" maxlength="40" placeholder="Nieuwe categorie">
+              <button
+                class="press shrink-0 px-4 py-2 rounded-lg border-2 border-primary text-primary font-semibold hover:bg-primary-light"
+                type="submit"
+              >
+                Toevoegen
+              </button>
+            </form>
+          </section>
+
+          <!-- Projects -->
+          <section>
+            <div class="flex flex-wrap items-center justify-between gap-4 mb-2">
+              <h2 class="text-xl md:text-2xl font-bold text-secondary">Projecten</h2>
+              <button
+                class="press inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dark"
+                type="button"
+                @click="addProject"
+              >
+                <PlusIcon class="w-5 h-5" />
+                Nieuw project
+              </button>
+            </div>
+            <p class="text-sm text-gray-600 mb-6">
+              De eerste foto is de omslagfoto. Foto's worden voor het uploaden automatisch verkleind.
+            </p>
+
+            <p v-if="!draft.projects.length" class="rounded-xl border-2 border-dashed border-gray-300 p-8 text-center text-gray-600">
+              Nog geen projecten. Voeg je eerste project toe met de knop hierboven.
+            </p>
+
+            <TransitionGroup class="relative space-y-6" name="admin-project" tag="ul" @before-leave="pinLeaving">
+              <li
+                v-for="(project, index) in draft.projects"
+                :key="project.id"
+                class="rounded-xl border border-border bg-white p-4 md:p-6 transition-colors duration-200 focus-within:border-primary/40"
+              >
+                <div class="flex flex-col md:flex-row gap-3 md:items-end mb-4">
+                  <div class="flex-1">
+                    <label :for="`title-${project.id}`" class="block text-sm font-bold text-gray-800 mb-1">Titel</label>
+                    <input
+                      :id="`title-${project.id}`"
+                      v-model="project.title"
+                      :class="inputClass"
+                      maxlength="120"
+                      placeholder="Bijv. Thuisbatterij geplaatst"
                     >
-                      <ArrowLeftIcon class="w-5 h-5" />
+                  </div>
+                  <div class="md:w-56">
+                    <label :for="`category-${project.id}`" class="block text-sm font-bold text-gray-800 mb-1">Categorie</label>
+                    <select :id="`category-${project.id}`" v-model="project.category" :class="inputClass">
+                      <option v-for="category in draft.categories" :key="category" :value="category">{{ category }}</option>
+                    </select>
+                  </div>
+                  <div class="flex gap-1">
+                    <button
+                      :class="iconButtonClass"
+                      :disabled="index === 0"
+                      aria-label="Project omhoog"
+                      type="button"
+                      @click="moveItem(draft.projects, index, -1)"
+                    >
+                      <ArrowUpIcon :class="[iconClass, nudge.up]" />
                     </button>
                     <button
-                      aria-label="Foto verwijderen"
-                      class="press p-2 rounded-md hover:bg-white/20"
+                      :class="iconButtonClass"
+                      :disabled="index === draft.projects.length - 1"
+                      aria-label="Project omlaag"
                       type="button"
-                      @click="removePhoto(project, photoIndex)"
+                      @click="moveItem(draft.projects, index, 1)"
                     >
-                      <XMarkIcon class="w-5 h-5" />
+                      <ArrowDownIcon :class="[iconClass, nudge.down]" />
                     </button>
                     <button
-                      :disabled="photoIndex === project.images.length - 1"
-                      aria-label="Foto naar achteren"
-                      class="press p-2 rounded-md hover:bg-white/20 disabled:opacity-0"
+                      :class="[iconButtonClass, 'hover:text-red']"
+                      aria-label="Project verwijderen"
                       type="button"
-                      @click="moveItem(project.images, photoIndex, 1)"
+                      @click="removeProject(index)"
                     >
-                      <ArrowRightIcon class="w-5 h-5" />
+                      <TrashIcon class="w-5 h-5" />
                     </button>
                   </div>
-                </li>
-                <li key="add">
-                  <label
-                    class="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-gray-300 p-2 text-center text-sm font-semibold text-gray-600 transition-colors hover:border-primary hover:text-primary focus-within:border-primary focus-within:text-primary"
+                </div>
+
+                <TransitionGroup
+                  class="relative grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2"
+                  name="admin-photo"
+                  tag="ul"
+                  type="transition"
+                  @before-leave="pinLeaving"
+                >
+                  <li
+                    v-for="(src, photoIndex) in project.images"
+                    :key="src"
+                    class="group relative aspect-square overflow-hidden rounded-lg bg-gray-100"
                   >
-                    <PhotoIcon class="w-6 h-6" />
-                    <span>{{ uploads[project.id] ? `Uploaden… (${uploads[project.id]})` : 'Foto\'s toevoegen' }}</span>
-                    <input accept="image/*" class="sr-only" multiple type="file" @change="addPhotos(project, $event)">
-                  </label>
-                </li>
-              </TransitionGroup>
-            </li>
-          </TransitionGroup>
-        </section>
-      </template>
+                    <NuxtImg
+                      :src="src"
+                      alt=""
+                      class="h-full w-full object-cover"
+                      fit="cover"
+                      format="webp"
+                      height="240"
+                      loading="lazy"
+                      width="240"
+                    />
+                    <span
+                      v-if="photoIndex === 0"
+                      class="absolute left-1 top-1 rounded bg-secondary/85 px-1.5 py-0.5 text-xs font-semibold text-white"
+                    >
+                      Omslag
+                    </span>
+                    <!-- With a mouse the controls appear on hover or focus; on touch they stay visible -->
+                    <div
+                      class="absolute inset-x-0 bottom-0 flex justify-between bg-linear-to-t from-secondary/85 to-transparent p-1 text-white transition-opacity duration-200 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:group-focus-within:opacity-100"
+                    >
+                      <button
+                        :disabled="photoIndex === 0"
+                        aria-label="Foto naar voren"
+                        :class="photoButtonClass"
+                        type="button"
+                        @click="moveItem(project.images, photoIndex, -1)"
+                      >
+                        <ArrowLeftIcon :class="[iconClass, nudge.left]" />
+                      </button>
+                      <button
+                        aria-label="Foto verwijderen"
+                        :class="photoButtonClass"
+                        type="button"
+                        @click="removePhoto(project, photoIndex)"
+                      >
+                        <XMarkIcon class="w-5 h-5" />
+                      </button>
+                      <button
+                        :disabled="photoIndex === project.images.length - 1"
+                        aria-label="Foto naar achteren"
+                        :class="photoButtonClass"
+                        type="button"
+                        @click="moveItem(project.images, photoIndex, 1)"
+                      >
+                        <ArrowRightIcon :class="[iconClass, nudge.right]" />
+                      </button>
+                    </div>
+                  </li>
+                  <!-- One placeholder per photo on its way up; each is replaced by the photo when it lands -->
+                  <li
+                    v-for="n in uploads[project.id] ?? 0"
+                    :key="`pending-${n}`"
+                    aria-hidden="true"
+                    class="aspect-square rounded-lg bg-gray-200 motion-safe:animate-pulse"
+                  />
+                  <li key="add">
+                    <label
+                      class="press group/add flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-gray-300 p-2 text-center text-sm font-semibold text-gray-600 hover:border-primary hover:bg-primary-light/40 hover:text-primary focus-within:border-primary focus-within:text-primary"
+                    >
+                      <PhotoIcon class="w-6 h-6 transition-transform duration-200 ease-out group-hover/add:-translate-y-0.5" />
+                      <span>Foto's toevoegen</span>
+                      <input accept="image/*" class="sr-only" multiple type="file" @change="addPhotos(project, $event)">
+                    </label>
+                  </li>
+                </TransitionGroup>
+              </li>
+            </TransitionGroup>
+          </section>
+        </div>
+      </Transition>
     </main>
 
     <!-- Save bar -->
     <div v-if="draft && session?.signedIn" class="material fixed inset-x-0 bottom-0 z-40 border-t border-border">
       <div class="container mx-auto max-w-5xl px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
         <p
-          :class="['text-sm', message?.kind === 'error' ? 'font-semibold text-red' : 'text-gray-700']"
+          :class="['flex items-center gap-2 text-sm', message?.kind === 'error' ? 'font-semibold text-red' : 'text-gray-700']"
           aria-live="polite"
           role="status"
         >
-          {{ statusText }}
+          <CheckCircleIcon v-if="showSaved" aria-hidden="true" class="saved-pop w-5 h-5 shrink-0 text-primary" />
+          <Transition
+            enter-active-class="transition-opacity duration-150 motion-reduce:transition-none"
+            enter-from-class="opacity-0"
+            leave-active-class="transition-opacity duration-100 motion-reduce:transition-none"
+            leave-to-class="opacity-0"
+            mode="out-in"
+          >
+            <span :key="statusText">{{ statusText }}</span>
+          </Transition>
         </p>
         <div class="flex gap-2">
           <button
@@ -657,3 +704,68 @@ const iconButtonClass = 'press p-2 rounded-lg text-gray-500 hover:text-secondary
     </div>
   </div>
 </template>
+
+<style>
+/* Before the enter/leave rules: an item can still carry the move class when it starts leaving, and the leave must win */
+.admin-project-move,
+.admin-photo-move {
+  transition: transform 350ms var(--ease-fluid);
+}
+
+/* A new project drops in from the "Nieuw project" button above it */
+.admin-project-enter-active {
+  transition: opacity 250ms ease-out, translate 350ms var(--ease-fluid);
+}
+
+.admin-project-enter-from {
+  opacity: 0;
+  translate: 0 -12px;
+}
+
+.admin-project-leave-active,
+.admin-photo-leave-active {
+  transition: opacity 150ms ease-in, scale 150ms ease-in;
+}
+
+.admin-project-leave-to {
+  opacity: 0;
+  scale: 0.98;
+}
+
+.admin-photo-enter-active {
+  transition: opacity 200ms ease-out, scale 300ms var(--ease-fluid);
+}
+
+.admin-photo-enter-from,
+.admin-photo-leave-to {
+  opacity: 0;
+  scale: 0.85;
+}
+
+/* Completion: the check lands as the save does */
+.saved-pop {
+  animation: saved-pop 300ms var(--ease-fluid) both;
+}
+
+@keyframes saved-pop {
+  from {
+    opacity: 0;
+    scale: 0.6;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-project-enter-active,
+  .admin-project-leave-active,
+  .admin-photo-enter-active,
+  .admin-photo-leave-active,
+  .admin-project-move,
+  .admin-photo-move {
+    transition: none;
+  }
+
+  .saved-pop {
+    animation: none;
+  }
+}
+</style>
