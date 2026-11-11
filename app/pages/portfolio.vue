@@ -112,6 +112,33 @@ const projectMomentum = (velocity: number, decelerationRate = 0.998) =>
 const rubberband = (overshoot: number, dimension: number, constant = 0.55) =>
   (overshoot * dimension * constant) / (dimension + constant * Math.abs(overshoot))
 
+/* Modal photos: preload the exact file the modal will request, so nothing animates in empty */
+const $img = useImage()
+const modalPhoto = (src: string) => $img.getSizes(src, { sizes: '100vw lg:1280px', modifiers: { format: 'webp' } })
+const photoCache = new Map<string, Promise<void>>()
+
+const preloadPhoto = (src: string) => {
+  let loaded = photoCache.get(src)
+  if (!loaded) {
+    const { srcset, sizes, src: fallback } = modalPhoto(src)
+    const img = new Image()
+    if (sizes) img.sizes = sizes
+    img.srcset = srcset
+    img.src = fallback ?? src
+    loaded = img.decode().catch(() => {})
+    photoCache.set(src, loaded)
+  }
+  return loaded
+}
+
+// True once the photo is decoded, false if that takes longer than a tap should wait
+const photoReady = (src: string, timeout = 300) => Promise.race([
+  preloadPhoto(src).then(() => true),
+  new Promise<boolean>(resolve => setTimeout(() => resolve(false), timeout))
+])
+
+const warmUp = (item: Project) => void preloadPhoto(item.images[0]!)
+
 /* Filter: one pill slides to the selected category */
 const filterRow = ref<HTMLElement | null>(null)
 const pill = ref<{ x: number; y: number; w: number; h: number } | null>(null)
@@ -218,9 +245,13 @@ const prevImage = () => {
   }
 }
 
-const showProject = (index: number) => {
+let switchToken = 0
+const showProject = async (index: number) => {
   const next = filteredProjects.value[index]
   if (!next) return
+  const token = ++switchToken
+  await photoReady(next.images[0]!)
+  if (token !== switchToken) return
   slideAnimation?.stop()
   slidePos = 0
   selectedProject.value = next
@@ -261,8 +292,14 @@ const morph = (from: HTMLElement | undefined, update: () => void, to: () => HTML
   })
 }
 
-const openModal = (selected: Project) => {
-  void morph(cardPhoto(selected.id), () => {
+let opening = false
+const openModal = async (selected: Project) => {
+  if (opening) return
+  opening = true
+  // Morph only into a photo that is ready; otherwise fall back to the fade
+  const ready = await photoReady(selected.images[0]!)
+  opening = false
+  void morph(ready ? cardPhoto(selected.id) : undefined, () => {
     slidePos = 0
     dismissY = 0
     selectedProject.value = selected
@@ -278,7 +315,9 @@ const closeModal = () => {
   const photo = cardPhoto(current.id)
   const rect = photo?.getBoundingClientRect()
   const cardVisible = rect && rect.bottom > 0 && rect.top < window.innerHeight
-  void morph(activePhoto(), resetModal, () => (cardVisible ? photo : undefined))
+  // The card shows the first photo; morphing any other photo into it would cross-fade two pictures
+  const morphFrom = selectedImageIndex.value === 0 ? activePhoto() : undefined
+  void morph(morphFrom, resetModal, () => (cardVisible ? photo : undefined))
     .then(async () => {
       await nextTick() // the page stops being inert on the next render
       card?.focus({ preventScroll: true })
@@ -387,6 +426,15 @@ const setPageLocked = (locked: boolean) => {
   else window.removeEventListener('keydown', onKeydown)
 }
 
+// Load every photo of the open project for swiping, and the neighbours' first photo for project switching
+watch(selectedProjectIndex, (index) => {
+  if (index < 0) return
+  filteredProjects.value[index]?.images.forEach(src => void preloadPhoto(src))
+  for (const neighbour of [filteredProjects.value[index - 1], filteredProjects.value[index + 1]]) {
+    if (neighbour) warmUp(neighbour)
+  }
+})
+
 watch(() => selectedProject.value !== null, (open) => {
   setPageLocked(open)
   if (open) void nextTick(() => closeButton.value?.focus({ preventScroll: true }))
@@ -471,6 +519,9 @@ onBeforeUnmount(() => {
               ]"
             type="button"
             @click="openModal(item)"
+            @focus="warmUp(item)"
+            @pointerdown="warmUp(item)"
+            @pointerenter="warmUp(item)"
           >
             <!-- Image -->
             <NuxtImg
@@ -556,27 +607,17 @@ onBeforeUnmount(() => {
                 @pointermove="onPointerMove"
                 @pointerup="onPointerUp"
               >
-                <Transition
-                  enter-active-class="transition-opacity duration-150"
-                  enter-from-class="opacity-0"
-                  leave-active-class="transition-opacity duration-100"
-                  leave-to-class="opacity-0"
-                  mode="out-in"
-                >
-                  <div :key="selectedProject.id" ref="track" class="flex h-full">
-                    <NuxtImg
-                      v-for="(image, i) in selectedProject.images"
-                      :key="image"
-                      :alt="`${selectedProject.title}, foto ${i + 1}`"
-                      :loading="Math.abs(i - selectedImageIndex) <= 1 ? 'eager' : 'lazy'"
-                      :src="image"
-                      class="h-full w-full shrink-0 object-cover"
-                      draggable="false"
-                      format="webp"
-                      sizes="100vw lg:1280px"
-                    />
-                  </div>
-                </Transition>
+                <!-- Keyed so a new project starts at its first photo -->
+                <div :key="selectedProject.id" ref="track" class="flex h-full">
+                  <img
+                    v-for="(image, i) in selectedProject.images"
+                    :key="image"
+                    :alt="`${selectedProject.title}, foto ${i + 1}`"
+                    class="h-full w-full shrink-0 object-cover"
+                    draggable="false"
+                    v-bind="modalPhoto(image)"
+                  >
+                </div>
 
                 <!-- Image Navigation Buttons -->
                 <button
@@ -631,40 +672,32 @@ onBeforeUnmount(() => {
               </div>
 
               <!-- Content -->
-              <Transition
-                enter-active-class="transition-opacity duration-150"
-                enter-from-class="opacity-0"
-                leave-active-class="transition-opacity duration-100"
-                leave-to-class="opacity-0"
-                mode="out-in"
-              >
-                <div :key="selectedProject.id" class="p-6 md:p-8 lg:p-12">
-                  <div class="flex items-center gap-3 mb-4">
-                    <span
-                      class="px-3 md:px-4 py-1 bg-primary-light text-primary-dark text-xs md:text-sm font-semibold rounded-full">
-                      {{ selectedProject.category }}
-                    </span>
-                    <span class="text-xs md:text-sm text-gray-500 tabular-nums">
-                      {{ selectedProjectIndex + 1 }} / {{ filteredProjects.length }}
-                    </span>
-                  </div>
-
-                  <h2 id="project-title" class="text-2xl sm:text-3xl md:text-4xl font-bold text-secondary mb-3 md:mb-4">
-                    {{ selectedProject.title }}
-                  </h2>
-
-                  <!-- CTA -->
-                  <div class="border-t border-border pt-6 md:pt-8 flex justify-center">
-                    <NuxtLink
-                      :to="{ path: '/contact', hash: '#contact-form', query: { category: selectedProject.category } }"
-                      class="press inline-block w-full sm:w-auto text-center px-6 md:px-8 py-3 md:py-4 bg-primary text-white text-sm md:text-base font-semibold rounded-lg hover:bg-primary-dark shadow-lg"
-                      @click="resetModal"
-                    >
-                      Soortgelijk project aanvragen
-                    </NuxtLink>
-                  </div>
+              <div class="p-6 md:p-8 lg:p-12">
+                <div class="flex items-center gap-3 mb-4">
+                  <span
+                    class="px-3 md:px-4 py-1 bg-primary-light text-primary-dark text-xs md:text-sm font-semibold rounded-full">
+                    {{ selectedProject.category }}
+                  </span>
+                  <span class="text-xs md:text-sm text-gray-500 tabular-nums">
+                    {{ selectedProjectIndex + 1 }} / {{ filteredProjects.length }}
+                  </span>
                 </div>
-              </Transition>
+
+                <h2 id="project-title" class="text-2xl sm:text-3xl md:text-4xl font-bold text-secondary mb-3 md:mb-4">
+                  {{ selectedProject.title }}
+                </h2>
+
+                <!-- CTA -->
+                <div class="border-t border-border pt-6 md:pt-8 flex justify-center">
+                  <NuxtLink
+                    :to="{ path: '/contact', hash: '#contact-form', query: { category: selectedProject.category } }"
+                    class="press inline-block w-full sm:w-auto text-center px-6 md:px-8 py-3 md:py-4 bg-primary text-white text-sm md:text-base font-semibold rounded-lg hover:bg-primary-dark shadow-lg"
+                    @click="resetModal"
+                  >
+                    Soortgelijk project aanvragen
+                  </NuxtLink>
+                </div>
+              </div>
             </div>
           </Transition>
         </div>

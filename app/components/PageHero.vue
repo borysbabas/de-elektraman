@@ -33,7 +33,6 @@ withDefaults(defineProps<Props>(), {
           <h1 class="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-[1.1] text-secondary">
             {{ title }}
           </h1>
-          <span aria-hidden="true" class="wire-rule wire-draw" />
           <p
             :class="[
             'text-base sm:text-lg md:text-xl leading-relaxed max-w-prose',
